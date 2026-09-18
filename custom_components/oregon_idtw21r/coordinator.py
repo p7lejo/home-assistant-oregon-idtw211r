@@ -249,8 +249,31 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             target_char = _find_characteristic(client, NOTIFICATION_HANDLE)
             if target_char is None:
+                # The original bluepy implementation used value handle 0x17.
+                # Resolving the characteristic through its known CCCD (0x18)
+                # is more robust if a platform reports the value handle
+                # differently.
+                measurement_cccd = _find_descriptor(client, 0x0018)
+                if measurement_cccd is not None:
+                    for service in client.services:
+                        for characteristic in service.characteristics:
+                            if measurement_cccd in characteristic.descriptors:
+                                target_char = characteristic
+                                _LOGGER.debug(
+                                    "%s: measurement characteristic resolved "
+                                    "through CCCD handle 0x0018: handle 0x%04x uuid=%s",
+                                    self.device_name,
+                                    target_char.handle,
+                                    target_char.uuid,
+                                )
+                                break
+                        if target_char is not None:
+                            break
+
+            if target_char is None:
                 raise UpdateFailed(
-                    "GATT measurement characteristic handle 0x17 not found"
+                    "GATT measurement characteristic not found "
+                    "(expected value handle 0x17 / CCCD handle 0x18)"
                 )
 
             if not (
