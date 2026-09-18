@@ -1,15 +1,19 @@
 {
   "domain": "oregon_idtw21r",
   "name": "Oregon Scientific IDTW21xR",
-  "codeowners": ["@p7lejo"],
+  "codeowners": [
+    "@p7lejo"
+  ],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
   "documentation": "https://github.com/p7lejo/home-assistant-oregon-idtw211r",
   "issue_tracker": "https://github.com/p7lejo/home-assistant-oregon-idtw211r/issues",
   "integration_type": "device",
   "iot_class": "local_push",
   "requirements": [],
-  "version": "0.2.5",
+  "version": "0.2.6",
   "bluetooth": [
     {
       "service_uuid": "74e7fe00-c6a4-11e2-b7a9-0002a5d5c51b",
