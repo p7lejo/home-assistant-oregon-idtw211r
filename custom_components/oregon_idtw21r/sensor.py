@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import PERCENTAGE, UnitOfTemperature
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN, NAME
 from .coordinator import OregonIDTW21RCoordinator
 
 SENSORS = (
@@ -23,7 +25,6 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     async_add_entities(
         OregonSensor(coordinator, entry.entry_id, key, name, device_class, unit)
         for key, name, device_class, unit in SENSORS
-        if key == "battery" or coordinator.data.get(key) is not None
     )
 
 
@@ -40,6 +41,12 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
         self._attr_has_entity_name = True
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.address)},
+            name=coordinator.device_name,
+            manufacturer="Oregon Scientific",
+            model=NAME,
+        )
 
     @property
     def native_value(self):
