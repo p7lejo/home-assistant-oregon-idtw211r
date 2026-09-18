@@ -56,6 +56,25 @@ def _humidity_value(value: int) -> int | None:
     return None if value == 127 else value
 
 
+def _decode_low_battery_flags(type1: bytes | None) -> dict[str, bool]:
+    """Decode low-battery flags from the type-1 packet."""
+    if type1 is None or len(type1) < 12 or type1[0] != 0x82:
+        return {}
+
+    status_byte = type1[1]
+    channel_available = (
+        not (type1[6] == 0xFF and type1[7] == 0x7F),
+        not (type1[8] == 0xFF and type1[9] == 0x7F),
+        not (type1[10] == 0xFF and type1[11] == 0x7F),
+    )
+
+    return {
+        "battery_low_outdoor_1": bool(status_byte & 0x08) if channel_available[0] else False,
+        "battery_low_outdoor_2": bool(status_byte & 0x10) if channel_available[1] else False,
+        "battery_low_outdoor_3": bool(status_byte & 0x20) if channel_available[2] else False,
+    }
+
+
 def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
     """Decode the packet format used by IDTW21xR."""
     if len(type0) < MIN_PACKET_LENGTH:
@@ -99,6 +118,7 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
             }
         )
 
+    result.update(_decode_low_battery_flags(type1))
     return result
 
 
