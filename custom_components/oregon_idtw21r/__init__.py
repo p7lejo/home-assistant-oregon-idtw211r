@@ -7,6 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .const import DOMAIN
 from .coordinator import OregonIDTW21RCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,9 +30,13 @@ async def async_setup_entry(
         entry.data["address"],
     )
     coordinator = OregonIDTW21RCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_create_background_task(
+        hass,
+        coordinator.async_config_entry_first_refresh(),
+        name=f"{DOMAIN} initial refresh",
+    )
     _LOGGER.info(
         "Oregon Scientific %s (%s) setup complete; sensors are available",
         entry.data.get("name", "IDTW21xR"),
