@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.components import bluetooth
@@ -16,6 +16,26 @@ class OregonIDTW21RConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    async def async_step_user(self, user_input=None) -> ConfigFlowResult:
+        """Handle manual setup."""
+        if user_input is not None:
+            address = user_input["address"].strip().upper()
+            await self.async_set_unique_id(address)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=address,
+                data={
+                    "address": address,
+                    "name": NAME,
+                    "service_uuid": SERVICE_UUID,
+                },
+            )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({vol.Required("address"): str}),
+        )
+
     async def async_step_bluetooth(
         self, discovery_info: bluetooth.BluetoothServiceInfoBleak
     ) -> ConfigFlowResult:
@@ -24,16 +44,24 @@ class OregonIDTW21RConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         name = discovery_info.name or discovery_info.address
+        self.context["title_placeholders"] = {"name": name}
+        self._discovery_info = discovery_info
 
-        self.context["title_placeholders"] = {
-            "name": name,
-        }
+        return self.async_show_form(step_id="confirm")
 
-        return self.async_create_entry(
-            title=name,
-            data={
-                "address": discovery_info.address,
-                "name": name,
-                "service_uuid": SERVICE_UUID,
-            },
-        )
+    async def async_step_confirm(self, user_input=None) -> ConfigFlowResult:
+        """Confirm a discovered device."""
+        discovery_info = self._discovery_info
+        name = discovery_info.name or discovery_info.address
+
+        if user_input is not None:
+            return self.async_create_entry(
+                title=name,
+                data={
+                    "address": discovery_info.address,
+                    "name": name,
+                    "service_uuid": SERVICE_UUID,
+                },
+            )
+
+        return self.async_show_form(step_id="confirm")
