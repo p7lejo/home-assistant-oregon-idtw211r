@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import PERCENTAGE, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, UnitOfTemperature
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -15,7 +15,18 @@ SENSORS = (
     ("temperature_outdoor", "Outdoor temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("humidity_indoor", "Indoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
     ("humidity_outdoor_1", "Outdoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
+    ("humidity_outdoor_2", "Outdoor 2 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
+    ("humidity_outdoor_3", "Outdoor 3 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
+    ("temperature_indoor_max", "Indoor temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_indoor_min", "Indoor temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_max", "Outdoor temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_min", "Outdoor temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_2_max", "Outdoor 2 temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_2_min", "Outdoor 2 temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_3_max", "Outdoor 3 temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_3_min", "Outdoor 3 temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("battery", "Battery", SensorDeviceClass.BATTERY, PERCENTAGE),
+    ("rssi", "Bluetooth RSSI", None, SIGNAL_STRENGTH_DECIBELS_MILLIWATT),
 )
 
 
