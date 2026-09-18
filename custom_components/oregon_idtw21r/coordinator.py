@@ -272,57 +272,72 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 target_char.properties,
             )
 
-            # Bleak registers the callback and enables the characteristic's
-            # notification/indication mechanism. The protocol CCCD sequence
-            # below then explicitly mirrors the remaining bluepy writes.
-            await client.start_notify(target_char, notification_handler)
-
-            # Ensure the exact CCCD value required by the reference protocol
-            # is present for the measurement characteristic as well.
-            measurement_cccd = _find_descriptor(client, 0x0018)
-            if measurement_cccd is not None:
-                await client.write_gatt_descriptor(
-                    measurement_cccd,
-                    PROTOCOL_CCCD_HANDLES[0x0018],
-                )
-                _LOGGER.debug(
-                    "%s: ensured measurement CCCD 0x0018 = %s",
-                    self.device_name,
-                    PROTOCOL_CCCD_HANDLES[0x0018].hex(" "),
-                )
-            else:
-                _LOGGER.warning(
-                    "%s: measurement CCCD descriptor 0x0018 not found; "
-                    "Bleak start_notify() remains active",
-                    self.device_name,
-                )
-
-            # Enable all other CCCDs from the original bluepy procedure.
-            other_cccds = {
-                handle: value
-                for handle, value in PROTOCOL_CCCD_HANDLES.items()
-                if handle != 0x0018
-            }
-            for handle, value in other_cccds.items():
-                descriptor = _find_descriptor(client, handle)
+            # Bleak deliberately blocks direct writes to CCCD (0x2902).
+            # Use start_notify() for every characteristic whose CCCD is part
+            # of the Oregon protocol. Bleak selects notifications (01 00) or
+            # indications (02 00) from the characteristic properties.
+            protocol_chars: list[Any] = []
+            for cccd_handle, _cccd_value in PROTOCOL_CCCD_HANDLES.items():
+                descriptor = _find_descriptor(client, cccd_handle)
                 if descriptor is None:
                     _LOGGER.warning(
                         "%s: protocol CCCD descriptor 0x%04x not found",
                         self.device_name,
-                        handle,
+                        cccd_handle,
                     )
                     continue
+
+                protocol_char = next(
+                    (
+                        characteristic
+                        for service in client.services
+                        for characteristic in service.characteristics
+                        if descriptor in characteristic.descriptors
+                    ),
+                    None,
+                )
+                if protocol_char is None:
+                    _LOGGER.warning(
+                        "%s: no characteristic found for CCCD 0x%04x",
+                        self.device_name,
+                        cccd_handle,
+                    )
+                    continue
+
+                if not ({"notify", "indicate"} & set(protocol_char.properties)):
+                    _LOGGER.warning(
+                        "%s: characteristic for CCCD 0x%04x has no "
+                        "notify/indicate property",
+                        self.device_name,
+                        cccd_handle,
+                    )
+                    continue
+
                 try:
-                    await client.write_gatt_descriptor(descriptor, value)
+                    if protocol_char.handle == target_char.handle:
+                        await client.start_notify(protocol_char, notification_handler)
+                    else:
+                        await client.start_notify(
+                            protocol_char,
+                            lambda sender, data: _LOGGER.debug(
+                                "%s: protocol indication from handle 0x%04x: %s",
+                                self.device_name,
+                                protocol_char.handle,
+                                bytes(data).hex(" "),
+                            ),
+                        )
                 except (BleakError, OSError, ValueError) as err:
                     raise UpdateFailed(
-                        f"Failed to enable protocol CCCD 0x{handle:04x}: {err}"
+                        f"Failed to enable protocol CCCD 0x{cccd_handle:04x}: {err}"
                     ) from err
+
                 _LOGGER.debug(
-                    "%s: enabled protocol CCCD 0x%04x with %s",
+                    "%s: enabled protocol CCCD 0x%04x via start_notify() "
+                    "(characteristic 0x%04x, properties=%s)",
                     self.device_name,
-                    handle,
-                    value.hex(" "),
+                    cccd_handle,
+                    protocol_char.handle,
+                    protocol_char.properties,
                 )
 
             _LOGGER.debug(
@@ -385,7 +400,21 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         finally:
             if client is not None:
                 try:
-                    await client.stop_notify(NOTIFICATION_CHAR_HANDLE)
+                    for cccd_handle in PROTOCOL_CCCD_HANDLES:
+                        descriptor = _find_descriptor(client, cccd_handle)
+                        if descriptor is None:
+                            continue
+                        protocol_char = next(
+                            (
+                                characteristic
+                                for service in client.services
+                                for characteristic in service.characteristics
+                                if descriptor in characteristic.descriptors
+                            ),
+                            None,
+                        )
+                        if protocol_char is not None:
+                            await client.stop_notify(protocol_char)
                 except Exception:
                     _LOGGER.debug(
                         "%s: error while stopping GATT notifications",
@@ -400,4 +429,4 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         "%s: error while disconnecting GATT client",
                         self.device_name,
                         exc_info=True,
-                    )
+                    )\n
