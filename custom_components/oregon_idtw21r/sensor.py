@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, UnitOfTemperature
+from homeassistant.const import (
+    CONNECTION_BLUETOOTH,
+    PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    UnitOfTemperature,
+)
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -26,6 +31,13 @@ TEMPERATURE_MIN_MAX = {
     "temperature_outdoor": ("temperature_outdoor_min", "temperature_outdoor_max"),
     "temperature_outdoor_2": ("temperature_outdoor_2_min", "temperature_outdoor_2_max"),
     "temperature_outdoor_3": ("temperature_outdoor_3_min", "temperature_outdoor_3_max"),
+}
+
+HUMIDITY_MIN_MAX = {
+    "humidity_indoor": ("humidity_indoor_min", "humidity_indoor_max"),
+    "humidity_outdoor_1": ("humidity_outdoor_1_min", "humidity_outdoor_1_max"),
+    "humidity_outdoor_2": ("humidity_outdoor_2_min", "humidity_outdoor_2_max"),
+    "humidity_outdoor_3": ("humidity_outdoor_3_min", "humidity_outdoor_3_max"),
 }
 
 
@@ -53,9 +65,11 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.address)},
+            connections={(CONNECTION_BLUETOOTH, coordinator.address)},
             name=coordinator.device_name,
             manufacturer="Oregon Scientific",
-            model=NAME,
+            model=coordinator.device_name,
+            hw_version="RAR213HG",
         )
 
     @property
@@ -67,9 +81,17 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
     def extra_state_attributes(self):
         """Return additional values for the sensor."""
         attributes = {}
+
         min_max = TEMPERATURE_MIN_MAX.get(self._key)
         if min_max is not None:
             min_key, max_key = min_max
             attributes["min_temperature"] = self.coordinator.data.get(min_key)
             attributes["max_temperature"] = self.coordinator.data.get(max_key)
+
+        min_max = HUMIDITY_MIN_MAX.get(self._key)
+        if min_max is not None:
+            min_key, max_key = min_max
+            attributes["min_humidity"] = self.coordinator.data.get(min_key)
+            attributes["max_humidity"] = self.coordinator.data.get(max_key)
+
         return attributes or None
