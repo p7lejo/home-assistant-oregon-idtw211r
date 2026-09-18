@@ -353,6 +353,13 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             await asyncio.sleep(0.5)
             result = _decode_measurements(type0, type1)
+            if ble_device.rssi is not None:
+                result["rssi"] = ble_device.rssi
+                _LOGGER.debug(
+                    "%s: Bluetooth RSSI %d dBm",
+                    self.device_name,
+                    ble_device.rssi,
+                )
 
             battery = next(
                 (
