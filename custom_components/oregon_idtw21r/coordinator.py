@@ -353,12 +353,19 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             await asyncio.sleep(0.5)
             result = _decode_measurements(type0, type1)
-            if ble_device.rssi is not None:
-                result["rssi"] = ble_device.rssi
+
+            # BLEDevice does not expose RSSI in current Bleak versions.
+            # Home Assistant keeps the latest advertisement in its Bluetooth
+            # manager, including the RSSI value.
+            service_info = bluetooth.async_last_service_info(
+                self.hass, self.address, False
+            )
+            if service_info is not None:
+                result["rssi"] = service_info.rssi
                 _LOGGER.debug(
                     "%s: Bluetooth RSSI %d dBm",
                     self.device_name,
-                    ble_device.rssi,
+                    service_info.rssi,
                 )
 
             battery = next(
