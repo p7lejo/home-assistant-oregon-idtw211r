@@ -20,14 +20,5 @@ jobs:
           if gh release view v0.1.0 --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release v0.1.0 already exists."
           else
-            gh release create v0.1.0 \
-              --repo "${{ github.repository }}" \
-              --target main \
-              --title "v0.1.0" \
-              --notes "Initial development release.
-
-- Bluetooth discovery via service UUID
-- IDTW21xR device detection
-- Initial Home Assistant config flow
-- GATT communication not implemented yet"
+            gh release create v0.1.0 --repo "${{ github.repository }}" --target main --title "v0.1.0" --notes "Initial development release. Bluetooth discovery via service UUID. IDTW21xR device detection. Initial Home Assistant config flow. GATT communication not implemented yet."
           fi
