@@ -429,4 +429,4 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         "%s: error while disconnecting GATT client",
                         self.device_name,
                         exc_info=True,
-                    )\n
+                    )
