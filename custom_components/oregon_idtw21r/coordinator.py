@@ -42,6 +42,15 @@ def _signed_int16_le(data: bytes, offset: int) -> int:
     return int.from_bytes(data[offset : offset + 2], "little", signed=True)
 
 
+def _temperature_value(data: bytes, offset: int) -> float | None:
+    """Return temperature or None for Oregon's no-value sentinel."""
+    raw = _signed_int16_le(data, offset)
+    # 0x7fff (32767) is used when an outdoor channel has no current value.
+    if raw == 0x7FFF:
+        return None
+    return raw / 10
+
+
 def _humidity_value(value: int) -> int | None:
     """Return humidity or None for Oregon's no-value sentinel."""
     return None if value == 127 else value
@@ -56,10 +65,10 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
         )
 
     result: dict[str, Any] = {
-        "temperature_indoor": _signed_int16_le(type0, 1) / 10,
-        "temperature_outdoor": _signed_int16_le(type0, 3) / 10,
-        "temperature_outdoor_2": _signed_int16_le(type0, 5) / 10,
-        "temperature_outdoor_3": _signed_int16_le(type0, 7) / 10,
+        "temperature_indoor": _temperature_value(type0, 1),
+        "temperature_outdoor": _temperature_value(type0, 3),
+        "temperature_outdoor_2": _temperature_value(type0, 5),
+        "temperature_outdoor_3": _temperature_value(type0, 7),
         "humidity_indoor": _humidity_value(type0[9]),
         "humidity_outdoor_1": _humidity_value(type0[10]),
         "humidity_outdoor_2": _humidity_value(type0[11]),
@@ -79,14 +88,14 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
                 "humidity_outdoor_2_min": _humidity_value(type1[1]),
                 "humidity_outdoor_3_max": _humidity_value(type1[2]),
                 "humidity_outdoor_3_min": _humidity_value(type1[3]),
-                "temperature_indoor_max": _signed_int16_le(type1, 4) / 10,
-                "temperature_indoor_min": _signed_int16_le(type1, 6) / 10,
-                "temperature_outdoor_max": _signed_int16_le(type1, 8) / 10,
-                "temperature_outdoor_min": _signed_int16_le(type1, 10) / 10,
-                "temperature_outdoor_2_max": _signed_int16_le(type1, 12) / 10,
-                "temperature_outdoor_2_min": _signed_int16_le(type1, 14) / 10,
-                "temperature_outdoor_3_max": _signed_int16_le(type1, 16) / 10,
-                "temperature_outdoor_3_min": _signed_int16_le(type1, 18) / 10,
+                "temperature_indoor_max": _temperature_value(type1, 4),
+                "temperature_indoor_min": _temperature_value(type1, 6),
+                "temperature_outdoor_max": _temperature_value(type1, 8),
+                "temperature_outdoor_min": _temperature_value(type1, 10),
+                "temperature_outdoor_2_max": _temperature_value(type1, 12),
+                "temperature_outdoor_2_min": _temperature_value(type1, 14),
+                "temperature_outdoor_3_max": _temperature_value(type1, 16),
+                "temperature_outdoor_3_min": _temperature_value(type1, 18),
             }
         )
 
