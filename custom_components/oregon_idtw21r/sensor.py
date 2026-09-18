@@ -17,17 +17,16 @@ SENSORS = (
     ("humidity_outdoor_1", "Outdoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
     ("humidity_outdoor_2", "Outdoor 2 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
     ("humidity_outdoor_3", "Outdoor 3 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
-    ("temperature_indoor_max", "Indoor temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_indoor_min", "Indoor temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_max", "Outdoor temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_min", "Outdoor temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_2_max", "Outdoor 2 temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_2_min", "Outdoor 2 temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_3_max", "Outdoor 3 temperature maximum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_3_min", "Outdoor 3 temperature minimum", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("battery", "Battery", SensorDeviceClass.BATTERY, PERCENTAGE),
     ("rssi", "Bluetooth RSSI", None, SIGNAL_STRENGTH_DECIBELS_MILLIWATT),
 )
+
+TEMPERATURE_MIN_MAX = {
+    "temperature_indoor": ("temperature_indoor_min", "temperature_indoor_max"),
+    "temperature_outdoor": ("temperature_outdoor_min", "temperature_outdoor_max"),
+    "temperature_outdoor_2": ("temperature_outdoor_2_min", "temperature_outdoor_2_max"),
+    "temperature_outdoor_3": ("temperature_outdoor_3_min", "temperature_outdoor_3_max"),
+}
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -63,3 +62,14 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
     def native_value(self):
         """Return the latest measurement."""
         return self.coordinator.data.get(self._key)
+
+    @property
+    def extra_state_attributes(self):
+        """Return additional values for the sensor."""
+        attributes = {}
+        min_max = TEMPERATURE_MIN_MAX.get(self._key)
+        if min_max is not None:
+            min_key, max_key = min_max
+            attributes["min_temperature"] = self.coordinator.data.get(min_key)
+            attributes["max_temperature"] = self.coordinator.data.get(max_key)
+        return attributes or None
