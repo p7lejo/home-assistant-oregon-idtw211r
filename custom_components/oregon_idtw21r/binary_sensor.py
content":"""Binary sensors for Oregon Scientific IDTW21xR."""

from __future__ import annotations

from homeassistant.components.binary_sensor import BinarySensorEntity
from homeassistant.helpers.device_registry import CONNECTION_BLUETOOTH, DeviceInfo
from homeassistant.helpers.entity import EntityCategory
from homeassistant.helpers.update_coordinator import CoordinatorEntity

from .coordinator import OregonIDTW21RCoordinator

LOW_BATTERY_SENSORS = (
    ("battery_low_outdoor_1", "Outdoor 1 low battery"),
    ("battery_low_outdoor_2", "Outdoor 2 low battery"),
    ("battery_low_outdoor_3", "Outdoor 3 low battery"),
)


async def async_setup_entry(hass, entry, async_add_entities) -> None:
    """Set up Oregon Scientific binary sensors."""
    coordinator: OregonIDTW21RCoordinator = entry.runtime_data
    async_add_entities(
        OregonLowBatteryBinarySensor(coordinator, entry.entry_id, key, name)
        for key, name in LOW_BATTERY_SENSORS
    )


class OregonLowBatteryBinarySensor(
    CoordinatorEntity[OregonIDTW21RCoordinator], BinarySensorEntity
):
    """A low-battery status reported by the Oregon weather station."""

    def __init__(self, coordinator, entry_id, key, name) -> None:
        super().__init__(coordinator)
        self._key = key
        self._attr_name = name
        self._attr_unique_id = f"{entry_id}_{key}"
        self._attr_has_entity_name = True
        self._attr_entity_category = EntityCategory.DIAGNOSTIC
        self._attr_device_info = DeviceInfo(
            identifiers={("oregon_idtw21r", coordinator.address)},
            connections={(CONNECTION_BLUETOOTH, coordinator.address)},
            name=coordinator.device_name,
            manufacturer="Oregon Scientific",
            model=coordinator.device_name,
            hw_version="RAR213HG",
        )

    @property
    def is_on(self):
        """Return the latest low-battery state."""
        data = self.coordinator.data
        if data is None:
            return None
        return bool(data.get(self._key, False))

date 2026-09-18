@@ -45,7 +45,6 @@ def _signed_int16_le(data: bytes, offset: int) -> int:
 def _temperature_value(data: bytes, offset: int) -> float | None:
     """Return temperature or None for Oregon's no-value sentinel."""
     raw = _signed_int16_le(data, offset)
-    # 0x7fff (32767) is used when an outdoor channel has no current value.
     if raw == 0x7FFF:
         return None
     return raw / 10
@@ -56,16 +55,22 @@ def _humidity_value(value: int) -> int | None:
     return None if value == 127 else value
 
 
-def _decode_low_battery_flags(data: bytes) -> dict[str, bool]:
-    """Decode the low-battery bits reported in the status byte."""
-    if len(data) < 20:
+def _decode_low_battery_flags(type1: bytes | None) -> dict[str, bool]:
+    """Decode low-battery flags from the type-1 packet."""
+    if type1 is None or len(type1) < 12 or type1[0] != 0x82:
         return {}
 
-    status_byte = data[19]
+    status_byte = type1[1]
+    channel_available = (
+        not (type1[6] == 0xFF and type1[7] == 0x7F),
+        not (type1[8] == 0xFF and type1[9] == 0x7F),
+        not (type1[10] == 0xFF and type1[11] == 0x7F),
+    )
+
     return {
-        "battery_low_outdoor_1": bool(status_byte & 0x04),
-        "battery_low_outdoor_2": bool(status_byte & 0x10),
-        "battery_low_outdoor_3": bool(status_byte & 0x20),
+        "battery_low_outdoor_1": bool(status_byte & 0x08) if channel_available[0] else False,
+        "battery_low_outdoor_2": bool(status_byte & 0x10) if channel_available[1] else False,
+        "battery_low_outdoor_3": bool(status_byte & 0x20) if channel_available[2] else False,
     }
 
 
@@ -112,7 +117,7 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
             }
         )
 
-    result.update(_decode_low_battery_flags(type0))
+    result.update(_decode_low_battery_flags(type1))
     return result
 
 
