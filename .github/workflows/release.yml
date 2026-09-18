@@ -38,5 +38,14 @@ jobs:
               --repo "${{ github.repository }}" \
               --target "${{ github.sha }}" \
               --title "$TAG" \
-              --notes "Oregon Scientific IDTW21xR Home Assistant integration release $TAG. Native Home Assistant Bluetooth/Bleak GATT communication and sensor decoding."
+              --notes "## Oregon Scientific IDTW21xR $TAG
+
+### Fixed
+- Correctly handle the Oregon Scientific no-value temperature sentinel 0x7FFF.
+- Outdoor temperature 2 now reports unavailable instead of 3276.7 °C when the corresponding sensor is not available.
+- Apply the same handling to Outdoor 3 and temperature min/max values.
+
+### Technical
+- Native Home Assistant Bluetooth/Bleak GATT communication remains unchanged.
+- No additional Python or system dependencies are required."
           fi
