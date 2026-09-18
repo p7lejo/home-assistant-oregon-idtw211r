@@ -58,6 +58,8 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
     result: dict[str, Any] = {
         "temperature_indoor": _signed_int16_le(type0, 1) / 10,
         "temperature_outdoor": _signed_int16_le(type0, 3) / 10,
+        "temperature_outdoor_2": _signed_int16_le(type0, 5) / 10,
+        "temperature_outdoor_3": _signed_int16_le(type0, 7) / 10,
         "humidity_indoor": _humidity_value(type0[9]),
         "humidity_outdoor_1": _humidity_value(type0[10]),
         "humidity_outdoor_2": _humidity_value(type0[11]),
