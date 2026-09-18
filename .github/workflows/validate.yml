@@ -1,0 +1,78 @@
+name: Validate integration
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Python and integration files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compile Python files
+        run: python -m compileall -q custom_components
+
+      - name: Validate JSON files
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          files = list(Path("custom_components").rglob("*.json"))
+          for path in files:
+              with path.open(encoding="utf-8") as file:
+                  json.load(file)
+              print(f"OK: {path}")
+          PY
+
+      - name: Validate manifest
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifests = list(Path("custom_components").glob("*/manifest.json"))
+          if not manifests:
+              raise SystemExit("No manifest.json found")
+
+          required = {
+              "domain",
+              "name",
+              "version",
+              "documentation",
+              "requirements",
+          }
+
+          for path in manifests:
+              data = json.loads(path.read_text(encoding="utf-8"))
+              missing = required - data.keys()
+              if missing:
+                  raise SystemExit(
+                      f"{path}: missing manifest keys: {', '.join(sorted(missing))}"
+                  )
+              print(f"OK: {path} ({data['domain']} {data['version']})")
+          PY
+
+      - name: Check trailing literal escape sequences
+        run: |
+          if grep -RIn --include='*.py' '\\n$' custom_components; then
+            echo "Found a literal \\n at the end of a Python line."
+            exit 1
+          fi
