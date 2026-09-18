@@ -243,7 +243,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug(
                 "%s: GATT connected; services: %d",
                 self.device_name,
-                len(client.services),
+                len(list(client.services)),
             )
             _log_gatt_services(client, self.device_name)
 
