@@ -15,7 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SERVICE_UUID
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,8 +23,24 @@ UPDATE_INTERVAL = timedelta(minutes=5)
 NOTIFICATION_HANDLE = 0x17
 MIN_PACKET_LENGTH = 20
 
+# The original bluepy implementation enables the complete set of CCCDs before
+# waiting for the measurement indication. These are descriptor handles, not
+# characteristic value handles. 0x0100 = notifications, 0x0200 = indications.
+PROTOCOL_CCCD_HANDLES = {
+    0x000C: b"\x02\x00",
+    0x000F: b"\x02\x00",
+    0x0012: b"\x02\x00",
+    0x0015: b"\x01\x00",
+    0x0018: b"\x02\x00",
+    0x001B: b"\x02\x00",
+    0x001E: b"\x02\x00",
+    0x0021: b"\x02\x00",
+    0x0032: b"\x01\x00",
+}
+
 
 def _signed_int16_le(data: bytes, offset: int) -> int:
+    """Read a signed little-endian 16-bit value."""
     return int.from_bytes(data[offset : offset + 2], "little", signed=True)
 
 
@@ -32,11 +48,12 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
     """Decode the packet format used by IDTW21xR."""
     if len(type0) < MIN_PACKET_LENGTH:
         raise ValueError(
-            "type-0 packet too short: %d bytes (expected at least %d)",
-            len(type0),
-            MIN_PACKET_LENGTH,
+            f"type-0 packet too short: {len(type0)} bytes "
+            f"(expected at least {MIN_PACKET_LENGTH})"
         )
 
+    # These byte offsets are a direct translation of the hexadecimal-string
+    # offsets used by the original reference implementation.
     result: dict[str, Any] = {
         "temperature_indoor": _signed_int16_le(type0, 1) / 10,
         "temperature_outdoor": _signed_int16_le(type0, 3) / 10,
@@ -53,7 +70,7 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
         "humidity_outdoor_2_max": type0[19],
     }
 
-    if type1 is not None and len(type1) >= 20:
+    if type1 is not None and len(type1) >= MIN_PACKET_LENGTH:
         result.update(
             {
                 "humidity_outdoor_2_min": type1[1],
@@ -71,6 +88,85 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
         )
 
     return result
+
+
+def _log_gatt_services(client: BleakClient, device_name: str) -> None:
+    """Log the complete GATT layout, including descriptor handles."""
+    for service in client.services:
+        _LOGGER.debug(
+            "%s: GATT service %s",
+            device_name,
+            service.uuid,
+        )
+        for characteristic in service.characteristics:
+            _LOGGER.debug(
+                "%s:   characteristic handle 0x%04x uuid=%s properties=%s",
+                device_name,
+                characteristic.handle,
+                characteristic.uuid,
+                characteristic.properties,
+            )
+            for descriptor in characteristic.descriptors:
+                _LOGGER.debug(
+                    "%s:     descriptor handle 0x%04x uuid=%s",
+                    device_name,
+                    descriptor.handle,
+                    descriptor.uuid,
+                )
+
+
+def _find_characteristic(client: BleakClient, handle: int) -> Any | None:
+    """Find a GATT characteristic by its value handle."""
+    return next(
+        (
+            characteristic
+            for service in client.services
+            for characteristic in service.characteristics
+            if characteristic.handle == handle
+        ),
+        None,
+    )
+
+
+def _find_descriptor(client: BleakClient, handle: int) -> Any | None:
+    """Find a GATT descriptor by its handle."""
+    return next(
+        (
+            descriptor
+            for service in client.services
+            for characteristic in service.characteristics
+            for descriptor in characteristic.descriptors
+            if descriptor.handle == handle
+        ),
+        None,
+    )
+
+
+async def _enable_protocol_cccds(client: BleakClient, device_name: str) -> None:
+    """Enable the CCCDs required by the original Oregon protocol."""
+    for handle, value in PROTOCOL_CCCD_HANDLES.items():
+        descriptor = _find_descriptor(client, handle)
+        if descriptor is None:
+            _LOGGER.warning(
+                "%s: protocol CCCD descriptor 0x%04x not found",
+                device_name,
+                handle,
+            )
+            continue
+
+        try:
+            await client.write_gatt_descriptor(descriptor, value)
+        except (BleakError, OSError, ValueError) as err:
+            raise UpdateFailed(
+                f"Failed to enable protocol CCCD 0x{handle:04x}: {err}"
+            ) from err
+
+        _LOGGER.debug(
+            "%s: enabled protocol CCCD 0x%04x with %s",
+            device_name,
+            handle,
+            value.hex(" "),
+        )
 
 
 class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -112,17 +208,22 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             nonlocal type0, type1
             packet = bytes(data)
             _LOGGER.debug(
-                "%s: notification received on handle 0x%02x: %s",
+                "%s: notification/indication received on handle 0x%02x: %s",
                 self.device_name,
                 NOTIFICATION_HANDLE,
                 packet.hex(" "),
             )
             if not packet:
                 return
-            if packet[0] & 0x80:
+
+            # The reference implementation identifies type 1 by hexadecimal
+            # first nibble == 8. Keep that exact rule instead of accepting all
+            # packets with the high bit set.
+            if (packet[0] >> 4) == 0x08:
                 type1 = packet
             else:
                 type0 = packet
+
             if type0 is not None:
                 notification_event.set()
 
@@ -144,30 +245,88 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.device_name,
                 len(client.services),
             )
+            _log_gatt_services(client, self.device_name)
 
-            target_char = next(
-                (
-                    characteristic
-                    for service in client.services
-                    for characteristic in service.characteristics
-                    if characteristic.handle == NOTIFICATION_HANDLE
-                    and "notify" in characteristic.properties
-                ),
-                None,
-            )
+            target_char = _find_characteristic(client, NOTIFICATION_HANDLE)
             if target_char is None:
                 raise UpdateFailed(
-                    "GATT notification characteristic handle 0x17 not found"
+                    "GATT measurement characteristic handle 0x17 not found"
+                )
+
+            if not (
+                {"notify", "indicate"} & set(target_char.properties)
+            ):
+                raise UpdateFailed(
+                    "GATT measurement characteristic handle 0x17 "
+                    "does not support notify/indicate"
                 )
 
             _LOGGER.debug(
-                "%s: subscribing to notification characteristic %s (handle 0x%02x)",
+                "%s: subscribing to measurement characteristic %s "
+                "(handle 0x%02x, properties=%s)",
                 self.device_name,
                 target_char.uuid,
                 target_char.handle,
+                target_char.properties,
             )
+
+            # Bleak registers the callback and enables the characteristic's
+            # notification/indication mechanism. The protocol CCCD sequence
+            # below then explicitly mirrors the remaining bluepy writes.
             await client.start_notify(target_char, notification_handler)
 
+            # Ensure the exact CCCD value required by the reference protocol
+            # is present for the measurement characteristic as well.
+            measurement_cccd = _find_descriptor(client, 0x0018)
+            if measurement_cccd is not None:
+                await client.write_gatt_descriptor(
+                    measurement_cccd,
+                    PROTOCOL_CCCD_HANDLES[0x0018],
+                )
+                _LOGGER.debug(
+                    "%s: ensured measurement CCCD 0x0018 = %s",
+                    self.device_name,
+                    PROTOCOL_CCCD_HANDLES[0x0018].hex(" "),
+                )
+            else:
+                _LOGGER.warning(
+                    "%s: measurement CCCD descriptor 0x0018 not found; "
+                    "Bleak start_notify() remains active",
+                    self.device_name,
+                )
+
+            # Enable all other CCCDs from the original bluepy procedure.
+            other_cccds = {
+                handle: value
+                for handle, value in PROTOCOL_CCCD_HANDLES.items()
+                if handle != 0x0018
+            }
+            for handle, value in other_cccds.items():
+                descriptor = _find_descriptor(client, handle)
+                if descriptor is None:
+                    _LOGGER.warning(
+                        "%s: protocol CCCD descriptor 0x%04x not found",
+                        self.device_name,
+                        handle,
+                    )
+                    continue
+                try:
+                    await client.write_gatt_descriptor(descriptor, value)
+                except (BleakError, OSError, ValueError) as err:
+                    raise UpdateFailed(
+                        f"Failed to enable protocol CCCD 0x{handle:04x}: {err}"
+                    ) from err
+                _LOGGER.debug(
+                    "%s: enabled protocol CCCD 0x%04x with %s",
+                    self.device_name,
+                    handle,
+                    value.hex(" "),
+                )
+
+            _LOGGER.debug(
+                "%s: waiting for type-0 measurement notification/indication",
+                self.device_name,
+            )
             try:
                 await asyncio.wait_for(notification_event.wait(), timeout=12)
             except TimeoutError as err:
@@ -223,6 +382,14 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"GATT communication failed: {err}") from err
         finally:
             if client is not None:
+                try:
+                    await client.stop_notify(NOTIFICATION_HANDLE)
+                except Exception:
+                    _LOGGER.debug(
+                        "%s: error while stopping GATT notifications",
+                        self.device_name,
+                        exc_info=True,
+                    )
                 try:
                     await client.disconnect()
                     _LOGGER.debug("%s: GATT disconnected", self.device_name)
