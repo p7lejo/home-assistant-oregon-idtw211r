@@ -1,48 +1,46 @@
-# Oregon Scientific IDTW211R for Home Assistant
+# Oregon Scientific IDTW21xR for Home Assistant
 
-Custom Home Assistant integration for the **Oregon Scientific IDTW211R** BLE weather sensor.
+Custom Home Assistant integration for Oregon Scientific BLE weather stations of the IDTW21xR family.
 
-## Project status
+## Current status
 
-**Early development / protocol investigation**
+Version 0.2.0 implements the first end-to-end data path:
+- Bluetooth discovery by the Oregon Scientific service UUID
+- Manual configuration by Bluetooth address
+- Native Home Assistant Bluetooth/Bleak GATT connection
+- Subscription to the measurement notification characteristic
+- Decoding of indoor/outdoor temperature and humidity
+- Battery level via the standard Battery Service
+- Automatic reconnect attempts
+- Explicit connection, notification, timeout and decoding log messages
 
-The IDTW211R advertises via Bluetooth Low Energy (BLE), but the measurement payload is not simply available from passive advertisements. The sensor requires an active BLE GATT interaction before the relevant data is received.
+The implementation is based on the protocol information from the original Raspberry Pi/bluepy project linked below. No bluepy, gatttool or hcitool installation is required.
 
-The project aims to implement the complete communication sequence using Home Assistant's native Bluetooth infrastructure:
+## Important: IDTW211R vs IDTW213R
 
-1. Discover the IDTW211R via BLE advertising.
-2. Establish a GATT connection.
-3. Enable the required notification characteristic and, where necessary, write the required command to the device.
-4. Receive and decode the sensor payload.
-5. Expose the measurements as normal Home Assistant entities.
-
-The protocol details (GATT UUIDs, command bytes and payload format) will be derived from the existing IDTW211R implementation and validated against the actual device before the integration is considered stable.
-
-## Goals
-
-- Native Home Assistant integration
-- No separate Raspberry Pi packages such as `bluepy`, `gatttool` or `hcitool`
-- Use Home Assistant's Bluetooth/Bleak stack
-- Configuration through the Home Assistant UI where practical
-- Robust reconnect handling
-- Proper handling of unavailable devices and failed BLE connections
-
-## Target platform
-
-The integration is intended for **Home Assistant OS** and should use the standard Bluetooth support provided by Home Assistant.
+The original project refers to `IDTW211R` and `IDTW213R`. The observed development device identifies itself as `IDTW213R`. The integration therefore uses the common `IDTW21xR` naming while matching the shared service UUID.
 
 ## Protocol reference
 
-The initial protocol investigation is based on the publicly documented work for connecting a Raspberry Pi to Oregon Scientific BLE weather hardware:
+- Instructables: https://www.instructables.com/Connect-Raspberry-Pi-to-Oregon-Scientific-BLE-Weat/
+- Reference implementation: https://github.com/sighmon/raspberry-pi-bluetooth-temperature
 
-https://www.instructables.com/Connect-Raspberry-Pi-to-Oregon-Scientific-BLE-Weat/
+The protocol decoder is a native Python/Bleak implementation of the relevant notification packet format from that reference.
 
-The original implementation uses an older Linux/Bluetooth software stack. This project adapts the relevant device communication to the current Home Assistant architecture rather than directly depending on those legacy tools.
+## Logging
 
-## Disclaimer
+For troubleshooting, enable debug logging:
 
-This is an independent, community-developed Home Assistant integration and is not affiliated with or endorsed by Oregon Scientific.
+```yaml
+logger:
+  logs:
+    custom_components.oregon_idtw21r: debug
+```
 
-## License
+Useful log messages include Bluetooth reachability, GATT connection attempts, service/characteristic discovery, raw notification packets, decoded values, battery level and connection failures.
 
-License to be defined during the initial development phase.
+## Development
+
+This is an independent community integration and is not affiliated with Oregon Scientific.
+
+Additional channels, min/max values and further IDTW21xR models will be added only after validation against real devices.
