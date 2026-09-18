@@ -24,9 +24,6 @@ NOTIFICATION_CHAR_HANDLE = 0x16
 # Bleak exposes the characteristic declaration handle. The ATT value handle is 0x17.
 MIN_PACKET_LENGTH = 20
 
-# The original bluepy implementation enables the complete set of CCCDs before
-# waiting for the measurement indication. These are descriptor handles, not
-# characteristic value handles. 0x0100 = notifications, 0x0200 = indications.
 PROTOCOL_CCCD_HANDLES = {
     0x000C: b"\x02\x00",
     0x000F: b"\x02\x00",
@@ -45,6 +42,11 @@ def _signed_int16_le(data: bytes, offset: int) -> int:
     return int.from_bytes(data[offset : offset + 2], "little", signed=True)
 
 
+def _humidity_value(value: int) -> int | None:
+    """Return humidity or None for Oregon's no-value sentinel."""
+    return None if value == 127 else value
+
+
 def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
     """Decode the packet format used by IDTW21xR."""
     if len(type0) < MIN_PACKET_LENGTH:
@@ -53,30 +55,28 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
             f"(expected at least {MIN_PACKET_LENGTH})"
         )
 
-    # These byte offsets are a direct translation of the hexadecimal-string
-    # offsets used by the original reference implementation.
     result: dict[str, Any] = {
         "temperature_indoor": _signed_int16_le(type0, 1) / 10,
         "temperature_outdoor": _signed_int16_le(type0, 3) / 10,
-        "humidity_indoor": type0[9],
-        "humidity_outdoor_1": type0[10],
-        "humidity_outdoor_2": type0[11],
-        "humidity_outdoor_3": type0[12],
+        "humidity_indoor": _humidity_value(type0[9]),
+        "humidity_outdoor_1": _humidity_value(type0[10]),
+        "humidity_outdoor_2": _humidity_value(type0[11]),
+        "humidity_outdoor_3": _humidity_value(type0[12]),
         "temperature_trend": type0[13],
         "humidity_trend": type0[14],
-        "humidity_indoor_max": type0[15],
-        "humidity_indoor_min": type0[16],
-        "humidity_outdoor_1_max": type0[17],
-        "humidity_outdoor_1_min": type0[18],
-        "humidity_outdoor_2_max": type0[19],
+        "humidity_indoor_max": _humidity_value(type0[15]),
+        "humidity_indoor_min": _humidity_value(type0[16]),
+        "humidity_outdoor_1_max": _humidity_value(type0[17]),
+        "humidity_outdoor_1_min": _humidity_value(type0[18]),
+        "humidity_outdoor_2_max": _humidity_value(type0[19]),
     }
 
     if type1 is not None and len(type1) >= MIN_PACKET_LENGTH:
         result.update(
             {
-                "humidity_outdoor_2_min": type1[1],
-                "humidity_outdoor_3_max": type1[2],
-                "humidity_outdoor_3_min": type1[3],
+                "humidity_outdoor_2_min": _humidity_value(type1[1]),
+                "humidity_outdoor_3_max": _humidity_value(type1[2]),
+                "humidity_outdoor_3_min": _humidity_value(type1[3]),
                 "temperature_indoor_max": _signed_int16_le(type1, 4) / 10,
                 "temperature_indoor_min": _signed_int16_le(type1, 6) / 10,
                 "temperature_outdoor_max": _signed_int16_le(type1, 8) / 10,
@@ -217,9 +217,6 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not packet:
                 return
 
-            # The reference implementation identifies type 1 by hexadecimal
-            # first nibble == 8. Keep that exact rule instead of accepting all
-            # packets with the high bit set.
             if (packet[0] >> 4) == 0x08:
                 type1 = packet
             else:
@@ -255,9 +252,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "(ATT value handle 0x17) not found"
                 )
 
-            if not (
-                {"notify", "indicate"} & set(target_char.properties)
-            ):
+            if not ({"notify", "indicate"} & set(target_char.properties)):
                 raise UpdateFailed(
                     "GATT measurement characteristic handle 0x17 "
                     "does not support notify/indicate"
@@ -272,11 +267,6 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 target_char.properties,
             )
 
-            # Bleak deliberately blocks direct writes to CCCD (0x2902).
-            # Use start_notify() for every characteristic whose CCCD is part
-            # of the Oregon protocol. Bleak selects notifications (01 00) or
-            # indications (02 00) from the characteristic properties.
-            protocol_chars: list[Any] = []
             for cccd_handle, _cccd_value in PROTOCOL_CCCD_HANDLES.items():
                 descriptor = _find_descriptor(client, cccd_handle)
                 if descriptor is None:
@@ -354,9 +344,6 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await asyncio.sleep(0.5)
             result = _decode_measurements(type0, type1)
 
-            # BLEDevice does not expose RSSI in current Bleak versions.
-            # Home Assistant keeps the latest advertisement in its Bluetooth
-            # manager, including the RSSI value.
             service_info = bluetooth.async_last_service_info(
                 self.hass, self.address, False
             )
@@ -383,15 +370,10 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 raw_battery = await client.read_gatt_char(battery)
                 if raw_battery:
                     result["battery"] = raw_battery[0]
-                    _LOGGER.debug(
-                        "%s: battery level %d%%",
-                        self.device_name,
-                        raw_battery[0],
-                    )
 
             _LOGGER.info(
-                "%s: received measurement packet: indoor %.1f °C / %d %%RH, "
-                "outdoor %.1f °C / %d %%RH",
+                "%s: received measurement packet: indoor %.1f °C / %s %%RH, "
+                "outdoor %.1f °C / %s %%RH",
                 self.device_name,
                 result["temperature_indoor"],
                 result["humidity_indoor"],
