@@ -13,12 +13,18 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Create v0.1.0 release
+      - name: Determine integration version
+        id: version
+        run: |
+          VERSION=$(curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/custom_components/oregon_idtw21r/manifest.json" | jq -r '.version')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Create release if missing
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.1.0 --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release v0.1.0 already exists."
+          TAG="v${{ steps.version.outputs.version }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists."
           else
-            gh release create v0.1.0 --repo "${{ github.repository }}" --target main --title "v0.1.0" --notes "Initial development release. Bluetooth discovery via service UUID. IDTW21xR device detection. Initial Home Assistant config flow. GATT communication not implemented yet."
+            gh release create "$TAG" --repo "${{ github.repository }}" --target main --title "$TAG" --notes "Oregon Scientific IDTW21xR Home Assistant integration release $TAG. Native Home Assistant Bluetooth/Bleak GATT communication and sensor decoding."
           fi
