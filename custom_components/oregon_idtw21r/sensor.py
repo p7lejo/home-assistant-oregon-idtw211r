@@ -17,6 +17,8 @@ from .coordinator import OregonIDTW21RCoordinator
 SENSORS = (
     ("temperature_indoor", "Indoor temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("temperature_outdoor", "Outdoor temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_2", "Outdoor 2 temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("temperature_outdoor_3", "Outdoor 3 temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("humidity_indoor", "Indoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
     ("humidity_outdoor_1", "Outdoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
     ("humidity_outdoor_2", "Outdoor 2 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
@@ -74,23 +76,30 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
     @property
     def native_value(self):
         """Return the latest measurement."""
-        return self.coordinator.data.get(self._key)
+        data = self.coordinator.data
+        if data is None:
+            return None
+        return data.get(self._key)
 
     @property
     def extra_state_attributes(self):
         """Return additional values for the sensor."""
+        data = self.coordinator.data
+        if data is None:
+            return None
+
         attributes = {}
 
         min_max = TEMPERATURE_MIN_MAX.get(self._key)
         if min_max is not None:
             min_key, max_key = min_max
-            attributes["min_temperature"] = self.coordinator.data.get(min_key)
-            attributes["max_temperature"] = self.coordinator.data.get(max_key)
+            attributes["min_temperature"] = data.get(min_key)
+            attributes["max_temperature"] = data.get(max_key)
 
         min_max = HUMIDITY_MIN_MAX.get(self._key)
         if min_max is not None:
             min_key, max_key = min_max
-            attributes["min_humidity"] = self.coordinator.data.get(min_key)
-            attributes["max_humidity"] = self.coordinator.data.get(max_key)
+            attributes["min_humidity"] = data.get(min_key)
+            attributes["max_humidity"] = data.get(max_key)
 
         return attributes or None
