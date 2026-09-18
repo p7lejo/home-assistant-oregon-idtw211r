@@ -1,5 +1,16 @@
 {
   "config": {
+    "step": {
+      "user": {
+        "title": "Oregon Scientific IDTW21xR",
+        "description": "Enter the Bluetooth address of the weather station.",
+        "data": {"address": "Bluetooth address"}
+      },
+      "confirm": {
+        "title": "Oregon Scientific device found",
+        "description": "Add {name} to Home Assistant?"
+      }
+    },
     "abort": {
       "already_configured": "This Oregon Scientific device is already configured."
     }
