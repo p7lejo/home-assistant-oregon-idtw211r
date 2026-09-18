@@ -20,7 +20,8 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_INTERVAL = timedelta(minutes=5)
-NOTIFICATION_HANDLE = 0x17
+NOTIFICATION_CHAR_HANDLE = 0x16
+# Bleak exposes the characteristic declaration handle. The ATT value handle is 0x17.
 MIN_PACKET_LENGTH = 20
 
 # The original bluepy implementation enables the complete set of CCCDs before
@@ -210,7 +211,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug(
                 "%s: notification/indication received on handle 0x%02x: %s",
                 self.device_name,
-                NOTIFICATION_HANDLE,
+                NOTIFICATION_CHAR_HANDLE,
                 packet.hex(" "),
             )
             if not packet:
@@ -247,33 +248,11 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             _log_gatt_services(client, self.device_name)
 
-            target_char = _find_characteristic(client, NOTIFICATION_HANDLE)
-            if target_char is None:
-                # The original bluepy implementation used value handle 0x17.
-                # Resolving the characteristic through its known CCCD (0x18)
-                # is more robust if a platform reports the value handle
-                # differently.
-                measurement_cccd = _find_descriptor(client, 0x0018)
-                if measurement_cccd is not None:
-                    for service in client.services:
-                        for characteristic in service.characteristics:
-                            if measurement_cccd in characteristic.descriptors:
-                                target_char = characteristic
-                                _LOGGER.debug(
-                                    "%s: measurement characteristic resolved "
-                                    "through CCCD handle 0x0018: handle 0x%04x uuid=%s",
-                                    self.device_name,
-                                    target_char.handle,
-                                    target_char.uuid,
-                                )
-                                break
-                        if target_char is not None:
-                            break
-
+            target_char = _find_characteristic(client, NOTIFICATION_CHAR_HANDLE)
             if target_char is None:
                 raise UpdateFailed(
-                    "GATT measurement characteristic not found "
-                    "(expected value handle 0x17 / CCCD handle 0x18)"
+                    "GATT measurement characteristic declaration handle 0x16 "
+                    "(ATT value handle 0x17) not found"
                 )
 
             if not (
@@ -406,7 +385,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         finally:
             if client is not None:
                 try:
-                    await client.stop_notify(NOTIFICATION_HANDLE)
+                    await client.stop_notify(NOTIFICATION_CHAR_HANDLE)
                 except Exception:
                     _LOGGER.debug(
                         "%s: error while stopping GATT notifications",
