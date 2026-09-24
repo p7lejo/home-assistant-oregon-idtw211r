@@ -15,7 +15,6 @@ LOW_BATTERY_SENSORS = (
     ("battery_low_outdoor_3", "Outdoor 3 low battery"),
 )
 
-
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Set up Oregon Scientific binary sensors."""
     coordinator: OregonIDTW21RCoordinator = entry.runtime_data
