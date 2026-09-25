@@ -11,18 +11,58 @@ from homeassistant.const import (
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME
+from .const import DOMAIN
 from .coordinator import OregonIDTW21RCoordinator
 
 SENSORS = (
-    ("temperature_indoor", "Indoor temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor", "Outdoor temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_2", "Outdoor 2 temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("temperature_outdoor_3", "Outdoor 3 temperature", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
-    ("humidity_indoor", "Indoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
-    ("humidity_outdoor_1", "Outdoor humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
-    ("humidity_outdoor_2", "Outdoor 2 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
-    ("humidity_outdoor_3", "Outdoor 3 humidity", SensorDeviceClass.HUMIDITY, PERCENTAGE),
+    (
+        "temperature_indoor",
+        "Indoor temperature",
+        SensorDeviceClass.TEMPERATURE,
+        UnitOfTemperature.CELSIUS,
+    ),
+    (
+        "temperature_outdoor",
+        "Outdoor temperature",
+        SensorDeviceClass.TEMPERATURE,
+        UnitOfTemperature.CELSIUS,
+    ),
+    (
+        "temperature_outdoor_2",
+        "Outdoor 2 temperature",
+        SensorDeviceClass.TEMPERATURE,
+        UnitOfTemperature.CELSIUS,
+    ),
+    (
+        "temperature_outdoor_3",
+        "Outdoor 3 temperature",
+        SensorDeviceClass.TEMPERATURE,
+        UnitOfTemperature.CELSIUS,
+    ),
+    (
+        "humidity_indoor",
+        "Indoor humidity",
+        SensorDeviceClass.HUMIDITY,
+        PERCENTAGE,
+    ),
+    (
+        "humidity_outdoor_1",
+        "Outdoor humidity",
+        SensorDeviceClass.HUMIDITY,
+        PERCENTAGE,
+    ),
+    (
+        "humidity_outdoor_2",
+        "Outdoor 2 humidity",
+        SensorDeviceClass.HUMIDITY,
+        PERCENTAGE,
+    ),
+    (
+        "humidity_outdoor_3",
+        "Outdoor 3 humidity",
+        SensorDeviceClass.HUMIDITY,
+        PERCENTAGE,
+    ),
     ("battery", "Battery", SensorDeviceClass.BATTERY, PERCENTAGE),
     ("rssi", "Bluetooth RSSI", None, SIGNAL_STRENGTH_DECIBELS_MILLIWATT),
 )
@@ -30,8 +70,14 @@ SENSORS = (
 TEMPERATURE_MIN_MAX = {
     "temperature_indoor": ("temperature_indoor_min", "temperature_indoor_max"),
     "temperature_outdoor": ("temperature_outdoor_min", "temperature_outdoor_max"),
-    "temperature_outdoor_2": ("temperature_outdoor_2_min", "temperature_outdoor_2_max"),
-    "temperature_outdoor_3": ("temperature_outdoor_3_min", "temperature_outdoor_3_max"),
+    "temperature_outdoor_2": (
+        "temperature_outdoor_2_min",
+        "temperature_outdoor_2_max",
+    ),
+    "temperature_outdoor_3": (
+        "temperature_outdoor_3_min",
+        "temperature_outdoor_3_max",
+    ),
 }
 
 HUMIDITY_MIN_MAX = {
@@ -39,6 +85,15 @@ HUMIDITY_MIN_MAX = {
     "humidity_outdoor_1": ("humidity_outdoor_1_min", "humidity_outdoor_1_max"),
     "humidity_outdoor_2": ("humidity_outdoor_2_min", "humidity_outdoor_2_max"),
     "humidity_outdoor_3": ("humidity_outdoor_3_min", "humidity_outdoor_3_max"),
+}
+
+OUTDOOR_SENSOR_KEYS = {
+    "temperature_outdoor": 1,
+    "humidity_outdoor_1": 1,
+    "temperature_outdoor_2": 2,
+    "humidity_outdoor_2": 2,
+    "temperature_outdoor_3": 3,
+    "humidity_outdoor_3": 3,
 }
 
 
@@ -64,14 +119,24 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
         self._attr_has_entity_name = True
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.address)},
-            connections={(CONNECTION_BLUETOOTH, coordinator.address)},
-            name=coordinator.device_name,
-            manufacturer="Oregon Scientific",
-            model=coordinator.device_name,
-            hw_version="RAR213HG",
-        )
+
+        outdoor_channel = OUTDOOR_SENSOR_KEYS.get(key)
+        if outdoor_channel is None:
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, coordinator.address)},
+                connections={(CONNECTION_BLUETOOTH, coordinator.address)},
+                name=coordinator.device_name,
+                manufacturer="Oregon Scientific",
+                model=coordinator.device_name,
+                hw_version="RAR213HG",
+            )
+        else:
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")},
+                name=f"Channel {outdoor_channel}",
+                manufacturer="Oregon Scientific",
+                via_device=(DOMAIN, coordinator.address),
+            )
 
     @property
     def native_value(self):
