@@ -132,8 +132,10 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
             )
         else:
             self._attr_device_info = DeviceInfo(
-                identifiers={(DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")},
-                name=f"Channel {outdoor_channel}",
+                identifiers={
+                    (DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")
+                },
+                name=f"Kanal {outdoor_channel}",
                 manufacturer="Oregon Scientific",
                 via_device=(DOMAIN, coordinator.address),
             )
