@@ -56,22 +56,16 @@ def _humidity_value(value: int) -> int | None:
     return None if value == 127 else value
 
 
-def _decode_low_battery_flags(type1: bytes | None) -> dict[str, bool]:
-    """Decode low-battery flags from the type-1 packet."""
-    if type1 is None or len(type1) < 12 or type1[0] != 0x82:
+def _decode_low_battery_flags(packet: bytes) -> dict[str, bool]:
+    """Decode outdoor low-battery flags from the 0x001f status packet."""
+    if len(packet) < 7 or packet[:3] != b"\\x00\\x19\\x07":
         return {}
 
-    status_byte = type1[1]
-    channel_available = (
-        not (type1[6] == 0xFF and type1[7] == 0x7F),
-        not (type1[8] == 0xFF and type1[9] == 0x7F),
-        not (type1[10] == 0xFF and type1[11] == 0x7F),
-    )
-
+    status_byte = packet[6]
     return {
-        "battery_low_outdoor_1": bool(status_byte & 0x08) if channel_available[0] else False,
-        "battery_low_outdoor_2": bool(status_byte & 0x10) if channel_available[1] else False,
-        "battery_low_outdoor_3": bool(status_byte & 0x20) if channel_available[2] else False,
+        "battery_low_outdoor_1": bool(status_byte & 0x01),
+        "battery_low_outdoor_2": bool(status_byte & 0x02),
+        "battery_low_outdoor_3": bool(status_byte & 0x04),
     }
 
 
@@ -234,6 +228,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         type0: bytes | None = None
         type1: bytes | None = None
+        low_battery_flags: dict[str, bool] = {}
         notification_event = asyncio.Event()
 
         def notification_handler(_: Any, data: bytearray) -> None:
@@ -255,6 +250,23 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if type0 is not None:
                 notification_event.set()
+
+        def protocol_notification_handler(handle: int):
+            """Create a handler for a protocol characteristic."""
+            def handler(_: Any, data: bytearray) -> None:
+                packet = bytes(data)
+                _LOGGER.debug(
+                    "%s: protocol indication from handle 0x%04x: %s",
+                    self.device_name,
+                    handle,
+                    packet.hex(" "),
+                )
+                if handle == 0x001F:
+                    low_battery_flags.update(
+                        _decode_low_battery_flags(packet)
+                    )
+
+            return handler
 
         client = None
         try:
@@ -340,12 +352,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     else:
                         await client.start_notify(
                             protocol_char,
-                            lambda sender, data: _LOGGER.debug(
-                                "%s: protocol indication from handle 0x%04x: %s",
-                                self.device_name,
-                                protocol_char.handle,
-                                bytes(data).hex(" "),
-                            ),
+                            protocol_notification_handler(protocol_char.handle),
                         )
                 except (BleakError, OSError, ValueError) as err:
                     raise UpdateFailed(
@@ -374,6 +381,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             await asyncio.sleep(0.5)
             result = _decode_measurements(type0, type1)
+            result.update(low_battery_flags)
 
             service_info = bluetooth.async_last_service_info(
                 self.hass, self.address, False
