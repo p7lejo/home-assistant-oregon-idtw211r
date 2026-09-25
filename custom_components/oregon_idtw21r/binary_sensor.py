@@ -7,7 +7,6 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import OregonIDTW21RCoordinator
@@ -40,7 +39,6 @@ class OregonLowBatteryBinarySensor(
         self._attr_unique_id = f"{entry_id}_{key}"
         self._attr_has_entity_name = True
         self._attr_device_class = BinarySensorDeviceClass.BATTERY
-        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={("oregon_idtw21r", coordinator.address)},
             connections={(CONNECTION_BLUETOOTH, coordinator.address)},
