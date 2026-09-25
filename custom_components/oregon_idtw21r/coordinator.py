@@ -23,8 +23,6 @@ UPDATE_INTERVAL = timedelta(minutes=5)
 NOTIFICATION_CHAR_HANDLE = 0x16
 # Bleak exposes the characteristic declaration handle. The ATT value handle is 0x17.
 MIN_PACKET_LENGTH = 20
-LOW_BATTERY_CCCD_HANDLE = 0x000C
-
 PROTOCOL_CCCD_HANDLES = {
     0x000C: b"\x02\x00",
     0x000F: b"\x02\x00",
@@ -264,8 +262,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     cccd_handle,
                     packet.hex(" "),
                 )
-                if cccd_handle == LOW_BATTERY_CCCD_HANDLE:
-                    low_battery_flags.update(_decode_low_battery_flags(packet))
+                decoded_flags = _decode_low_battery_flags(packet)
+                if decoded_flags:
+                    low_battery_flags.update(decoded_flags)
 
             return handler
 
