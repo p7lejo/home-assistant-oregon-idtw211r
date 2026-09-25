@@ -38,5 +38,5 @@ jobs:
               --repo "${{ github.repository }}" \
               --target "${{ github.sha }}" \
               --title "$TAG" \
-              --notes "## Oregon Scientific IDTW21xR $TAG
+              --notes "## Oregon Scientific IDTW21xR $TAG"
           fi
