@@ -23,6 +23,7 @@ UPDATE_INTERVAL = timedelta(minutes=5)
 NOTIFICATION_CHAR_HANDLE = 0x16
 # Bleak exposes the characteristic declaration handle. The ATT value handle is 0x17.
 MIN_PACKET_LENGTH = 20
+LOW_BATTERY_CCCD_HANDLE = 0x000C
 
 PROTOCOL_CCCD_HANDLES = {
     0x000C: b"\x02\x00",
@@ -57,7 +58,7 @@ def _humidity_value(value: int) -> int | None:
 
 
 def _decode_low_battery_flags(packet: bytes) -> dict[str, bool]:
-    """Decode outdoor low-battery flags from the 0x001f status packet."""
+    """Decode outdoor low-battery flags from the protocol status packet."""
     if len(packet) < 7 or packet[:3] != bytes((0x00, 0x19, 0x07)):
         return {}
 
@@ -112,7 +113,6 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
             }
         )
 
-    result.update(_decode_low_battery_flags(type1))
     return result
 
 
@@ -251,20 +251,21 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if type0 is not None:
                 notification_event.set()
 
-        def protocol_notification_handler(handle: int):
+        def protocol_notification_handler(
+            characteristic_handle: int, cccd_handle: int
+        ):
             """Create a handler for a protocol characteristic."""
             def handler(_: Any, data: bytearray) -> None:
                 packet = bytes(data)
                 _LOGGER.debug(
-                    "%s: protocol indication from handle 0x%04x: %s",
+                    "%s: protocol indication from handle 0x%04x (CCCD 0x%04x): %s",
                     self.device_name,
-                    handle,
+                    characteristic_handle,
+                    cccd_handle,
                     packet.hex(" "),
                 )
-                if handle == 0x001F:
-                    low_battery_flags.update(
-                        _decode_low_battery_flags(packet)
-                    )
+                if cccd_handle == LOW_BATTERY_CCCD_HANDLE:
+                    low_battery_flags.update(_decode_low_battery_flags(packet))
 
             return handler
 
@@ -352,7 +353,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     else:
                         await client.start_notify(
                             protocol_char,
-                            protocol_notification_handler(protocol_char.handle),
+                            protocol_notification_handler(
+                                protocol_char.handle, cccd_handle
+                            ),
                         )
                 except (BleakError, OSError, ValueError) as err:
                     raise UpdateFailed(
@@ -411,13 +414,24 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     result["battery"] = raw_battery[0]
 
             _LOGGER.info(
-                "%s: received measurement packet: indoor %.1f °C / %s %%RH, "
-                "outdoor %.1f °C / %s %%RH",
+                "%s: measurements: indoor %.1f °C / %s %%RH; "
+                "outdoor 1 %.1f °C / %s %%RH; "
+                "outdoor 2 %.1f °C / %s %%RH; "
+                "outdoor 3 %.1f °C / %s %%RH; "
+                "batteries: outdoor 1 %s, outdoor 2 %s, outdoor 3 %s, base %s%%",
                 self.device_name,
                 result["temperature_indoor"],
                 result["humidity_indoor"],
                 result["temperature_outdoor"],
                 result["humidity_outdoor_1"],
+                result["temperature_outdoor_2"],
+                result["humidity_outdoor_2"],
+                result["temperature_outdoor_3"],
+                result["humidity_outdoor_3"],
+                "LOW" if result.get("battery_low_outdoor_1") else "OK",
+                "LOW" if result.get("battery_low_outdoor_2") else "OK",
+                "LOW" if result.get("battery_low_outdoor_3") else "OK",
+                result.get("battery", "unknown"),
             )
             return result
 
