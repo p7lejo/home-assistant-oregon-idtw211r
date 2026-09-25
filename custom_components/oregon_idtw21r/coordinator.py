@@ -58,7 +58,7 @@ def _humidity_value(value: int) -> int | None:
 
 def _decode_low_battery_flags(packet: bytes) -> dict[str, bool]:
     """Decode outdoor low-battery flags from the 0x001f status packet."""
-    if len(packet) < 7 or packet[:3] != b"\\x00\\x19\\x07":
+    if len(packet) < 7 or packet[:3] != bytes((0x00, 0x19, 0x07)):
         return {}
 
     status_byte = packet[6]
