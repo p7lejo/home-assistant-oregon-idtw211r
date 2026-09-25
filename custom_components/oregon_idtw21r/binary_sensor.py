@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -10,10 +13,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .coordinator import OregonIDTW21RCoordinator
 
 LOW_BATTERY_SENSORS = (
-    ("battery_low_outdoor_1", "Outdoor 1 low battery"),
-    ("battery_low_outdoor_2", "Outdoor 2 low battery"),
-    ("battery_low_outdoor_3", "Outdoor 3 low battery"),
+    ("battery_low_outdoor_1", "Outdoor 1 battery"),
+    ("battery_low_outdoor_2", "Outdoor 2 battery"),
+    ("battery_low_outdoor_3", "Outdoor 3 battery"),
 )
+
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Set up Oregon Scientific binary sensors."""
@@ -35,6 +39,7 @@ class OregonLowBatteryBinarySensor(
         self._attr_name = name
         self._attr_unique_id = f"{entry_id}_{key}"
         self._attr_has_entity_name = True
+        self._attr_device_class = BinarySensorDeviceClass.BATTERY
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={("oregon_idtw21r", coordinator.address)},
@@ -47,8 +52,8 @@ class OregonLowBatteryBinarySensor(
 
     @property
     def is_on(self):
-        """Return the latest low-battery state."""
+        """Return true when the outdoor sensor battery is low."""
         data = self.coordinator.data
         if data is None:
             return None
-        return bool(data.get(self._key, False))
+        return data.get(self._key)
