@@ -6,15 +6,16 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN
 from .coordinator import OregonIDTW21RCoordinator
 
 LOW_BATTERY_SENSORS = (
-    ("battery_low_outdoor_1", "Outdoor 1 battery"),
-    ("battery_low_outdoor_2", "Outdoor 2 battery"),
-    ("battery_low_outdoor_3", "Outdoor 3 battery"),
+    ("battery_low_outdoor_1", "Outdoor 1 battery", 1),
+    ("battery_low_outdoor_2", "Outdoor 2 battery", 2),
+    ("battery_low_outdoor_3", "Outdoor 3 battery", 3),
 )
 
 
@@ -22,8 +23,8 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Set up Oregon Scientific binary sensors."""
     coordinator: OregonIDTW21RCoordinator = entry.runtime_data
     async_add_entities(
-        OregonLowBatteryBinarySensor(coordinator, entry.entry_id, key, name)
-        for key, name in LOW_BATTERY_SENSORS
+        OregonLowBatteryBinarySensor(coordinator, entry.entry_id, key, name, channel)
+        for key, name, channel in LOW_BATTERY_SENSORS
     )
 
 
@@ -32,7 +33,7 @@ class OregonLowBatteryBinarySensor(
 ):
     """A low-battery status reported by the Oregon weather station."""
 
-    def __init__(self, coordinator, entry_id, key, name) -> None:
+    def __init__(self, coordinator, entry_id, key, name, channel) -> None:
         super().__init__(coordinator)
         self._key = key
         self._attr_name = name
@@ -40,12 +41,10 @@ class OregonLowBatteryBinarySensor(
         self._attr_has_entity_name = True
         self._attr_device_class = BinarySensorDeviceClass.BATTERY
         self._attr_device_info = DeviceInfo(
-            identifiers={("oregon_idtw21r", coordinator.address)},
-            connections={(CONNECTION_BLUETOOTH, coordinator.address)},
-            name=coordinator.device_name,
+            identifiers={(DOMAIN, f"{coordinator.address}_outdoor_{channel}")},
+            name=f"Kanal {channel}",
             manufacturer="Oregon Scientific",
-            model=coordinator.device_name,
-            hw_version="RAR213HG",
+            via_device=(DOMAIN, coordinator.address),
         )
 
     @property
