@@ -125,4 +125,4 @@ Useful log messages include Bluetooth reachability, GATT connection attempts, th
 
 This is an independent community integration and is not affiliated with Oregon Scientific.
 
-Additional channels, min/max values and further IDTW21xR models will be added only after validation against real devices.
+Further IDTW21xR models and additional channels will be added only after validation against real devices.
