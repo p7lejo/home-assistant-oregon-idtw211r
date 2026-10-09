@@ -52,9 +52,11 @@ jobs:
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_NOTES: ${{ steps.version.outputs.notes }}
         run: |
-          TAG="v${{ steps.version.outputs.version }}"
-          NOTES="${{ steps.version.outputs.notes }}"
+          TAG="v$RELEASE_VERSION"
+          NOTES="$RELEASE_NOTES"
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --repo "${{ github.repository }}" \
