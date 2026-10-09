@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.19** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.20** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
