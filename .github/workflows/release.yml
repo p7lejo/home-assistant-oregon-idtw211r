@@ -16,27 +16,54 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Determine integration version
+      - name: Determine integration version and release notes
         id: version
+        shell: bash
         run: |
           VERSION=$(jq -r '.version' custom_components/oregon_idtw21r/manifest.json)
           if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
             echo "Could not determine integration version."
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create release if missing
+          if [ ! -f CHANGELOG.md ]; then
+            echo "CHANGELOG.md is missing; refusing to publish a release without release notes."
+            exit 1
+          fi
+
+          NOTES=$(awk -v version="$VERSION" '
+            $0 == "## " version { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+            echo "No release notes found for version $VERSION in CHANGELOG.md."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "notes<<RELEASE_NOTES_EOF"
+            printf '%s\n' "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.version.outputs.version }}"
+          NOTES="${{ steps.version.outputs.notes }}"
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release $TAG already exists."
+            gh release edit "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --notes "$NOTES"
           else
             gh release create "$TAG" \
               --repo "${{ github.repository }}" \
               --target "${{ github.sha }}" \
               --title "$TAG" \
-              --notes "## Oregon Scientific IDTW21xR $TAG"
+              --notes "$NOTES"
           fi
