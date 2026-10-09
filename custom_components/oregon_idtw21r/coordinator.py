@@ -55,6 +55,11 @@ def _humidity_value(value: int) -> int | None:
     return None if value == 127 else value
 
 
+def _format_temperature(value: float | None) -> str:
+    """Format a temperature for logging, including missing values."""
+    return f"{value:.1f}" if value is not None else "n/a"
+
+
 def _decode_low_battery_flags(packet: bytes) -> dict[str, bool]:
     """Decode outdoor low-battery flags from the protocol status packet."""
     if len(packet) < 7 or packet[:3] != bytes((0x00, 0x19, 0x07)):
@@ -413,19 +418,19 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     result["battery"] = raw_battery[0]
 
             _LOGGER.info(
-                "%s: measurements: indoor %.1f °C / %s %%RH; "
-                "outdoor 1 %.1f °C / %s %%RH; "
-                "outdoor 2 %.1f °C / %s %%RH; "
-                "outdoor 3 %.1f °C / %s %%RH; "
+                "%s: measurements: indoor %s °C / %s %%RH; "
+                "outdoor 1 %s °C / %s %%RH; "
+                "outdoor 2 %s °C / %s %%RH; "
+                "outdoor 3 %s °C / %s %%RH; "
                 "batteries: outdoor 1 %s, outdoor 2 %s, outdoor 3 %s, base %s%%",
                 self.device_name,
-                result["temperature_indoor"],
+                _format_temperature(result["temperature_indoor"]),
                 result["humidity_indoor"],
-                result["temperature_outdoor"],
+                _format_temperature(result["temperature_outdoor"]),
                 result["humidity_outdoor_1"],
-                result["temperature_outdoor_2"],
+                _format_temperature(result["temperature_outdoor_2"]),
                 result["humidity_outdoor_2"],
-                result["temperature_outdoor_3"],
+                _format_temperature(result["temperature_outdoor_3"]),
                 result["humidity_outdoor_3"],
                 "LOW" if result.get("battery_low_outdoor_1") else "OK",
                 "LOW" if result.get("battery_low_outdoor_2") else "OK",
