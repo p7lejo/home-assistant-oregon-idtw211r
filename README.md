@@ -4,13 +4,13 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.20** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.21** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
 - Native Home Assistant Bluetooth/Bleak GATT connection
 - GATT service, characteristic and descriptor discovery
-- Reproduction of the relevant CCCD activation sequence used by the original bluepy implementation
+- Reproduction of the relevant CCCD activation sequence used by the original bluepy implementation, including explicit descriptor writes after Bleak notification-handler registration
 - Subscription to the measurement notification/indication characteristic
 - Decoding of indoor temperature and humidity
 - Decoding of up to three outdoor temperature and humidity sensors
