@@ -23,17 +23,17 @@ UPDATE_INTERVAL = timedelta(minutes=5)
 NOTIFICATION_CHAR_HANDLE = 0x16
 # Bleak exposes the characteristic declaration handle. The ATT value handle is 0x17.
 MIN_PACKET_LENGTH = 20
-PROTOCOL_CCCD_HANDLES = {
-    0x000C: b"\x02\x00",
-    0x000F: b"\x02\x00",
-    0x0012: b"\x02\x00",
-    0x0015: b"\x01\x00",
-    0x0018: b"\x02\x00",
-    0x001B: b"\x02\x00",
-    0x001E: b"\x02\x00",
-    0x0021: b"\x02\x00",
-    0x0032: b"\x01\x00",
-}
+PROTOCOL_CCCD_HANDLES = (
+    0x000C,
+    0x000F,
+    0x0012,
+    0x0015,
+    0x0018,
+    0x001B,
+    0x001E,
+    0x0021,
+    0x0032,
+)
 
 
 def _signed_int16_le(data: bytes, offset: int) -> int:
@@ -171,31 +171,6 @@ def _find_descriptor(client: BleakClient, handle: int) -> Any | None:
     )
 
 
-async def _enable_protocol_cccds(client: BleakClient, device_name: str) -> None:
-    """Enable the CCCDs required by the original Oregon protocol."""
-    for handle, value in PROTOCOL_CCCD_HANDLES.items():
-        descriptor = _find_descriptor(client, handle)
-        if descriptor is None:
-            _LOGGER.warning(
-                "%s: protocol CCCD descriptor 0x%04x not found",
-                device_name,
-                handle,
-            )
-            continue
-
-        try:
-            await client.write_gatt_descriptor(descriptor, value)
-        except (BleakError, OSError, ValueError) as err:
-            raise UpdateFailed(
-                f"Failed to enable protocol CCCD 0x{handle:04x}: {err}"
-            ) from err
-
-        _LOGGER.debug(
-            "%s: enabled protocol CCCD 0x%04x with %s",
-            device_name,
-            handle,
-            value.hex(" "),
-        )
 
 
 class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -274,6 +249,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return handler
 
         client = None
+        started_notifications: list[Any] = []
         try:
             _LOGGER.debug(
                 "%s: connecting to %s using Home Assistant Bluetooth/Bleak",
@@ -315,11 +291,23 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 target_char.properties,
             )
 
-            for cccd_handle, _cccd_value in PROTOCOL_CCCD_HANDLES.items():
+            # Subscribe to the measurement characteristic first. Auxiliary
+            # protocol characteristics are only needed for optional battery flags;
+            # a failure on one of them must not prevent measurement updates.
+            try:
+                await client.start_notify(target_char, notification_handler)
+                started_notifications.append(target_char)
+            except (BleakError, OSError, ValueError) as err:
+                raise UpdateFailed(
+                    f"Failed to subscribe to measurement characteristic "
+                    f"0x{target_char.handle:04x}: {err}"
+                ) from err
+
+            for cccd_handle in PROTOCOL_CCCD_HANDLES:
                 descriptor = _find_descriptor(client, cccd_handle)
                 if descriptor is None:
-                    _LOGGER.warning(
-                        "%s: protocol CCCD descriptor 0x%04x not found",
+                    _LOGGER.debug(
+                        "%s: optional protocol CCCD descriptor 0x%04x not found",
                         self.device_name,
                         cccd_handle,
                     )
@@ -334,51 +322,31 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     ),
                     None,
                 )
-                if protocol_char is None:
-                    _LOGGER.warning(
-                        "%s: no characteristic found for CCCD 0x%04x",
-                        self.device_name,
-                        cccd_handle,
-                    )
+                if protocol_char is None or protocol_char.handle == target_char.handle:
                     continue
 
                 if not ({"notify", "indicate"} & set(protocol_char.properties)):
-                    _LOGGER.warning(
-                        "%s: characteristic for CCCD 0x%04x has no "
-                        "notify/indicate property",
-                        self.device_name,
-                        cccd_handle,
-                    )
                     continue
 
                 try:
-                    if protocol_char.handle == target_char.handle:
-                        await client.start_notify(protocol_char, notification_handler)
-                    else:
-                        await client.start_notify(
-                            protocol_char,
-                            protocol_notification_handler(
-                                protocol_char.handle, cccd_handle
-                            ),
-                        )
+                    await client.start_notify(
+                        protocol_char,
+                        protocol_notification_handler(
+                            protocol_char.handle, cccd_handle
+                        ),
+                    )
                 except (BleakError, OSError, ValueError) as err:
-                    raise UpdateFailed(
-                        f"Failed to enable protocol CCCD 0x{cccd_handle:04x}: {err}"
-                    ) from err
+                    _LOGGER.warning(
+                        "%s: optional protocol indication subscription failed "
+                        "for characteristic 0x%04x (CCCD 0x%04x): %s",
+                        self.device_name,
+                        protocol_char.handle,
+                        cccd_handle,
+                        err,
+                    )
+                    continue
 
-                _LOGGER.debug(
-                    "%s: enabled protocol CCCD 0x%04x via start_notify() "
-                    "(characteristic 0x%04x, properties=%s)",
-                    self.device_name,
-                    cccd_handle,
-                    protocol_char.handle,
-                    protocol_char.properties,
-                )
-
-            # Bleak start_notify() registers callbacks, but explicitly write the
-            # protocol CCCDs as the original implementation did. This keeps the
-            # device-side activation sequence deterministic across Bleak backends.
-            await _enable_protocol_cccds(client, self.device_name)
+                started_notifications.append(protocol_char)
 
             _LOGGER.debug(
                 "%s: waiting for type-0 measurement notification/indication",
@@ -457,28 +425,18 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"GATT communication failed: {err}") from err
         finally:
             if client is not None:
-                try:
-                    for cccd_handle in PROTOCOL_CCCD_HANDLES:
-                        descriptor = _find_descriptor(client, cccd_handle)
-                        if descriptor is None:
-                            continue
-                        protocol_char = next(
-                            (
-                                characteristic
-                                for service in client.services
-                                for characteristic in service.characteristics
-                                if descriptor in characteristic.descriptors
-                            ),
-                            None,
+                for protocol_char in started_notifications:
+                    try:
+                        await client.stop_notify(protocol_char)
+                    except (BleakError, OSError, ValueError):
+                        _LOGGER.debug(
+                            "%s: error while stopping notifications for "
+                            "characteristic 0x%04x",
+                            self.device_name,
+                            protocol_char.handle,
+                            exc_info=True,
                         )
-                        if protocol_char is not None:
-                            await client.stop_notify(protocol_char)
-                except Exception:
-                    _LOGGER.debug(
-                        "%s: error while stopping GATT notifications",
-                        self.device_name,
-                        exc_info=True,
-                    )
+
                 try:
                     await client.disconnect()
                     _LOGGER.debug("%s: GATT disconnected", self.device_name)
