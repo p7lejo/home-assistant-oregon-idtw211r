@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.21
+
+### Fixed
+- Explicitly write the nine protocol CCCD descriptors in the original Oregon sequence after registering Bleak notification handlers. This restores deterministic device-side notification activation on Bluetooth backends where `start_notify()` alone does not reliably trigger measurements.
+- Keep measurement decoding, entity definitions and the five-minute polling interval unchanged.
+
 ## 0.2.20
 
 ### Fixed
