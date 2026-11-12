@@ -4,14 +4,14 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.21** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.22** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
 - Native Home Assistant Bluetooth/Bleak GATT connection
 - GATT service, characteristic and descriptor discovery
-- Reproduction of the relevant CCCD activation sequence used by the original bluepy implementation, including explicit descriptor writes after Bleak notification-handler registration
-- Subscription to the measurement notification/indication characteristic
+- Subscription to the measurement notification/indication characteristic before optional protocol indications
+- Best-effort subscription to auxiliary protocol characteristics for outdoor low-battery status; failures on these optional characteristics do not block measurement updates
 - Decoding of indoor temperature and humidity
 - Decoding of up to three outdoor temperature and humidity sensors
 - Base-station battery level via the standard Bluetooth Battery Service
@@ -54,7 +54,7 @@ The protocol decoder is a native Python/Bleak implementation of the relevant not
 
 The original reference enables nine CCCD handles before waiting for protocol data: `0x000C=02 00`, `0x000F=02 00`, `0x0012=02 00`, `0x0015=01 00`, `0x0018=02 00`, `0x001B=02 00`, `0x001E=02 00`, `0x0021=02 00`, and `0x0032=01 00`.
 
-The native implementation uses Bleak's `start_notify()` for the measurement characteristic and writes the required CCCDs through `write_gatt_descriptor()`.
+The native implementation lets Bleak manage the measurement subscription through `start_notify()`. Auxiliary protocol characteristics are subscribed to on a best-effort basis. The integration does not write CCCDs directly: on some BlueZ/Bleak combinations, a descriptor write or subscription to an auxiliary characteristic can fail with `GATT Protocol Error: Unlikely Error` and must not prevent the measurement characteristic from being used.
 
 ### Outdoor low-battery status
 
@@ -119,7 +119,7 @@ logger:
     custom_components.oregon_idtw21r: debug
 ```
 
-Useful log messages include Bluetooth reachability, GATT connection attempts, the discovered GATT layout and handles, CCCD activation, raw protocol packets, decoded measurements, outdoor battery status, base-station battery level and connection failures.
+Useful log messages include Bluetooth reachability, GATT connection attempts, the discovered GATT layout and handles, measurement subscription, optional protocol indications, raw protocol packets, decoded measurements, outdoor battery status, base-station battery level and connection failures.
 
 ## Development
 
