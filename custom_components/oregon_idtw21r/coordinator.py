@@ -375,6 +375,11 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     protocol_char.properties,
                 )
 
+            # Bleak start_notify() registers callbacks, but explicitly write the
+            # protocol CCCDs as the original implementation did. This keeps the
+            # device-side activation sequence deterministic across Bleak backends.
+            await _enable_protocol_cccds(client, self.device_name)
+
             _LOGGER.debug(
                 "%s: waiting for type-0 measurement notification/indication",
                 self.device_name,
