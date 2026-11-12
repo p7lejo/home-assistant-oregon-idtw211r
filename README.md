@@ -4,13 +4,13 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.22** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.23** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
 - Native Home Assistant Bluetooth/Bleak GATT connection
 - GATT service, characteristic and descriptor discovery
-- Subscription to the measurement notification/indication characteristic before optional protocol indications
+- Subscription to protocol characteristics in the original Oregon CCCD activation order, with the measurement indication at CCCD `0x0018` enabled after the preceding channels
 - Best-effort subscription to auxiliary protocol characteristics for outdoor low-battery status; failures on these optional characteristics do not block measurement updates
 - Decoding of indoor temperature and humidity
 - Decoding of up to three outdoor temperature and humidity sensors
@@ -54,7 +54,7 @@ The protocol decoder is a native Python/Bleak implementation of the relevant not
 
 The original reference enables nine CCCD handles before waiting for protocol data: `0x000C=02 00`, `0x000F=02 00`, `0x0012=02 00`, `0x0015=01 00`, `0x0018=02 00`, `0x001B=02 00`, `0x001E=02 00`, `0x0021=02 00`, and `0x0032=01 00`.
 
-The native implementation lets Bleak manage the measurement subscription through `start_notify()`. Auxiliary protocol characteristics are subscribed to on a best-effort basis. The integration does not write CCCDs directly: on some BlueZ/Bleak combinations, a descriptor write or subscription to an auxiliary characteristic can fail with `GATT Protocol Error: Unlikely Error` and must not prevent the measurement characteristic from being used.
+The native implementation lets Bleak manage all CCCD activation through `start_notify()` and follows the original bluepy activation order: `0x000C`, `0x000F`, `0x0012`, `0x0015`, `0x0018` (measurement), `0x001B`, `0x001E`, `0x0021`, and `0x0032`. Auxiliary protocol subscriptions are best-effort; a failure on one of them is logged and does not prevent the remaining sequence from being attempted. Direct CCCD descriptor writes are not used.
 
 ### Outdoor low-battery status
 

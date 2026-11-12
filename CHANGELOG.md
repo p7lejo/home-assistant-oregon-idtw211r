@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.23
+
+### Fixed
+- Restore the original Oregon protocol CCCD activation order using Bleak `start_notify()`: auxiliary characteristics are subscribed before the measurement characteristic at CCCD `0x0018`.
+- Keep direct CCCD descriptor writes removed; Bleak remains responsible for enabling notifications and indications.
+- Log each subscription attempt and its duration, and fail clearly if the measurement CCCD cannot be resolved or subscribed.
+- Keep measurement decoding, entities and the five-minute polling interval unchanged.
+
 ## 0.2.22
 
 ### Fixed

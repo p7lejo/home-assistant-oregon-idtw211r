@@ -291,21 +291,18 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 target_char.properties,
             )
 
-            # Subscribe to the measurement characteristic first. Auxiliary
-            # protocol characteristics are only needed for optional battery flags;
-            # a failure on one of them must not prevent measurement updates.
-            try:
-                await client.start_notify(target_char, notification_handler)
-                started_notifications.append(target_char)
-            except (BleakError, OSError, ValueError) as err:
-                raise UpdateFailed(
-                    f"Failed to subscribe to measurement characteristic "
-                    f"0x{target_char.handle:04x}: {err}"
-                ) from err
-
+            # Reproduce the CCCD activation order of the original bluepy
+            # implementation. In particular, the measurement characteristic
+            # (CCCD 0x0018) is activated only after the preceding protocol
+            # characteristics. Bleak still owns CCCD writes via start_notify().
+            measurement_subscribed = False
             for cccd_handle in PROTOCOL_CCCD_HANDLES:
                 descriptor = _find_descriptor(client, cccd_handle)
                 if descriptor is None:
+                    if cccd_handle == 0x0018:
+                        raise UpdateFailed(
+                            "Measurement CCCD descriptor 0x0018 not found"
+                        )
                     _LOGGER.debug(
                         "%s: optional protocol CCCD descriptor 0x%04x not found",
                         self.device_name,
@@ -322,20 +319,50 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     ),
                     None,
                 )
-                if protocol_char is None or protocol_char.handle == target_char.handle:
+                if protocol_char is None:
+                    _LOGGER.debug(
+                        "%s: no characteristic found for CCCD 0x%04x",
+                        self.device_name,
+                        cccd_handle,
+                    )
                     continue
 
                 if not ({"notify", "indicate"} & set(protocol_char.properties)):
+                    _LOGGER.debug(
+                        "%s: characteristic 0x%04x for CCCD 0x%04x has no "
+                        "notify/indicate property",
+                        self.device_name,
+                        protocol_char.handle,
+                        cccd_handle,
+                    )
                     continue
 
+                is_measurement = protocol_char.handle == target_char.handle
+                _LOGGER.debug(
+                    "%s: subscribing to %s characteristic 0x%04x "
+                    "(CCCD 0x%04x, properties=%s)",
+                    self.device_name,
+                    "measurement" if is_measurement else "protocol",
+                    protocol_char.handle,
+                    cccd_handle,
+                    protocol_char.properties,
+                )
+                started_at = asyncio.get_running_loop().time()
                 try:
-                    await client.start_notify(
-                        protocol_char,
-                        protocol_notification_handler(
+                    handler = (
+                        notification_handler
+                        if is_measurement
+                        else protocol_notification_handler(
                             protocol_char.handle, cccd_handle
-                        ),
+                        )
                     )
+                    await client.start_notify(protocol_char, handler)
                 except (BleakError, OSError, ValueError) as err:
+                    if is_measurement:
+                        raise UpdateFailed(
+                            f"Failed to subscribe to measurement characteristic "
+                            f"0x{target_char.handle:04x} (CCCD 0x{cccd_handle:04x}): {err}"
+                        ) from err
                     _LOGGER.warning(
                         "%s: optional protocol indication subscription failed "
                         "for characteristic 0x%04x (CCCD 0x%04x): %s",
@@ -347,6 +374,23 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     continue
 
                 started_notifications.append(protocol_char)
+                if is_measurement:
+                    measurement_subscribed = True
+                _LOGGER.debug(
+                    "%s: subscribed to %s characteristic 0x%04x "
+                    "(CCCD 0x%04x) in %.3f s",
+                    self.device_name,
+                    "measurement" if is_measurement else "protocol",
+                    protocol_char.handle,
+                    cccd_handle,
+                    asyncio.get_running_loop().time() - started_at,
+                )
+
+            if not measurement_subscribed:
+                raise UpdateFailed(
+                    "Measurement characteristic 0x0016 was not subscribed "
+                    "because its CCCD 0x0018 could not be resolved"
+                )
 
             _LOGGER.debug(
                 "%s: waiting for type-0 measurement notification/indication",
