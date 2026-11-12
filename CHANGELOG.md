@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.22
+
+### Fixed
+- Subscribe to the measurement characteristic first and treat auxiliary protocol indications as optional. A failure to subscribe to an auxiliary characteristic no longer prevents temperature and humidity updates.
+- Remove direct CCCD descriptor writes; let Bleak manage subscription state.
+- Track only successfully subscribed characteristics and stop notifications without re-querying GATT services during cleanup. This avoids a secondary service-discovery exception after a failed subscription.
+- Keep measurement decoding, entity definitions and the five-minute polling interval unchanged.
+
 ## 0.2.21
 
 ### Fixed
