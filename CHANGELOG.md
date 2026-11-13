@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.24
+
+### Fixed
+- Cache the discovered GATT services and characteristic/CCCD mapping before starting subscriptions. Avoid re-reading `client.services` after a failed GATT operation, when Bleak may no longer expose the service-discovery cache.
+- Log the connection state and full exception when a protocol subscription fails.
+- Abort the update immediately when the GATT connection has been lost, preserving the original subscription error instead of raising a secondary service-discovery exception.
+- Skip notification cleanup when the connection is already disconnected.
+- Keep the Oregon CCCD activation order, measurement decoding, entities and five-minute polling interval unchanged.
+
 ## 0.2.23
 
 ### Fixed
