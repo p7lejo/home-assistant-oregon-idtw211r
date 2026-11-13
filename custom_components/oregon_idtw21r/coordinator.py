@@ -360,12 +360,6 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             f"characteristic 0x{protocol_char.handle:04x} "
                             f"(CCCD 0x{cccd_handle:04x}): {err}"
                         ) from err
-                    if is_measurement:
-                        raise UpdateFailed(
-                            "Failed to subscribe to measurement characteristic "
-                            f"0x{target_char.handle:04x} "
-                            f"(CCCD 0x{cccd_handle:04x}): {err}"
-                        ) from err
                     continue
 
                 started_notifications.append(protocol_char)
