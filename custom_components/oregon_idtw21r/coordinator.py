@@ -119,9 +119,9 @@ def _decode_measurements(type0: bytes, type1: bytes | None) -> dict[str, Any]:
     return result
 
 
-def _log_gatt_services(client: BleakClient, device_name: str) -> None:
+def _log_gatt_services(services: Any, device_name: str) -> None:
     """Log the complete GATT layout, including descriptor handles."""
-    for service in client.services:
+    for service in services:
         _LOGGER.debug(
             "%s: GATT service %s",
             device_name,
@@ -144,28 +144,14 @@ def _log_gatt_services(client: BleakClient, device_name: str) -> None:
                 )
 
 
-def _find_characteristic(client: BleakClient, handle: int) -> Any | None:
+def _find_characteristic(services: Any, handle: int) -> Any | None:
     """Find a GATT characteristic by its value handle."""
     return next(
         (
             characteristic
-            for service in client.services
+            for service in services
             for characteristic in service.characteristics
             if characteristic.handle == handle
-        ),
-        None,
-    )
-
-
-def _find_descriptor(client: BleakClient, handle: int) -> Any | None:
-    """Find a GATT descriptor by its handle."""
-    return next(
-        (
-            descriptor
-            for service in client.services
-            for characteristic in service.characteristics
-            for descriptor in characteristic.descriptors
-            if descriptor.handle == handle
         ),
         None,
     )
@@ -262,14 +248,18 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.device_name,
                 max_attempts=3,
             )
+            # Resolve the GATT database once and reuse its objects throughout
+            # this connection attempt. A failed GATT operation can invalidate
+            # Bleak's service-discovery state; do not query client.services again.
+            services = client.services
             _LOGGER.debug(
                 "%s: GATT connected; services: %d",
                 self.device_name,
-                len(list(client.services)),
+                len(list(services)),
             )
-            _log_gatt_services(client, self.device_name)
+            _log_gatt_services(services, self.device_name)
 
-            target_char = _find_characteristic(client, NOTIFICATION_CHAR_HANDLE)
+            target_char = _find_characteristic(services, NOTIFICATION_CHAR_HANDLE)
             if target_char is None:
                 raise UpdateFailed(
                     "GATT measurement characteristic declaration handle 0x16 "
@@ -295,33 +285,23 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # implementation. In particular, the measurement characteristic
             # (CCCD 0x0018) is activated only after the preceding protocol
             # characteristics. Bleak still owns CCCD writes via start_notify().
+            subscriptions: dict[int, Any] = {}
+            for service in services:
+                for characteristic in service.characteristics:
+                    for descriptor in characteristic.descriptors:
+                        if descriptor.handle in PROTOCOL_CCCD_HANDLES:
+                            subscriptions[descriptor.handle] = characteristic
+
             measurement_subscribed = False
             for cccd_handle in PROTOCOL_CCCD_HANDLES:
-                descriptor = _find_descriptor(client, cccd_handle)
-                if descriptor is None:
+                protocol_char = subscriptions.get(cccd_handle)
+                if protocol_char is None:
                     if cccd_handle == 0x0018:
                         raise UpdateFailed(
                             "Measurement CCCD descriptor 0x0018 not found"
                         )
                     _LOGGER.debug(
                         "%s: optional protocol CCCD descriptor 0x%04x not found",
-                        self.device_name,
-                        cccd_handle,
-                    )
-                    continue
-
-                protocol_char = next(
-                    (
-                        characteristic
-                        for service in client.services
-                        for characteristic in service.characteristics
-                        if descriptor in characteristic.descriptors
-                    ),
-                    None,
-                )
-                if protocol_char is None:
-                    _LOGGER.debug(
-                        "%s: no characteristic found for CCCD 0x%04x",
                         self.device_name,
                         cccd_handle,
                     )
@@ -363,14 +343,29 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             f"Failed to subscribe to measurement characteristic "
                             f"0x{target_char.handle:04x} (CCCD 0x{cccd_handle:04x}): {err}"
                         ) from err
+                    connected = client.is_connected
                     _LOGGER.warning(
-                        "%s: optional protocol indication subscription failed "
-                        "for characteristic 0x%04x (CCCD 0x%04x): %s",
+                        "%s: protocol subscription failed for characteristic "
+                        "0x%04x (CCCD 0x%04x); connected=%s: %s",
                         self.device_name,
                         protocol_char.handle,
                         cccd_handle,
+                        connected,
                         err,
+                        exc_info=True,
                     )
+                    if not connected:
+                        raise UpdateFailed(
+                            "GATT connection was lost while subscribing to "
+                            f"characteristic 0x{protocol_char.handle:04x} "
+                            f"(CCCD 0x{cccd_handle:04x}): {err}"
+                        ) from err
+                    if is_measurement:
+                        raise UpdateFailed(
+                            "Failed to subscribe to measurement characteristic "
+                            f"0x{target_char.handle:04x} "
+                            f"(CCCD 0x{cccd_handle:04x}): {err}"
+                        ) from err
                     continue
 
                 started_notifications.append(protocol_char)
@@ -421,7 +416,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             battery = next(
                 (
                     characteristic
-                    for service in client.services
+                    for service in services
                     for characteristic in service.characteristics
                     if characteristic.uuid.lower()
                     == "00002a19-0000-1000-8000-00805f9b34fb"
@@ -470,6 +465,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         finally:
             if client is not None:
                 for protocol_char in started_notifications:
+                    if not client.is_connected:
+                        break
                     try:
                         await client.stop_notify(protocol_char)
                     except (BleakError, OSError, ValueError):
