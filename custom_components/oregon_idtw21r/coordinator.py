@@ -460,6 +460,11 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ),
                 None,
             )
+            if battery is not None:
+                raw_battery = await client.read_gatt_char(battery)
+                if raw_battery:
+                    result["battery"] = raw_battery[0]
+
             if not self._history_attempted:
                 # History is diagnostic-only for now. Do not let an unsupported
                 # history command interfere with the live measurement update.
@@ -527,6 +532,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 min(history_samples),
                                 max(history_samples),
                             )
+                            history_indices = sorted(history_samples)
                             for start in range(0, len(ordered_samples), 24):
                                 end = min(start + 24, len(ordered_samples))
                                 _LOGGER.debug(
@@ -534,8 +540,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                     "temperature °C: %s",
                                     self.device_name,
                                     start // 24 + 1,
-                                    sorted(history_samples)[start],
-                                    sorted(history_samples)[end - 1],
+                                    history_indices[start],
+                                    history_indices[end - 1],
                                     temperatures[start:end],
                                 )
                                 _LOGGER.debug(
@@ -552,7 +558,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 "%s: no indoor history notifications received",
                                 self.device_name,
                             )
-                    except (BleakError, OSError, ValueError) as err:
+                    except (BleakError, OSError, ValueError, TimeoutError) as err:
                         _LOGGER.debug(
                             "%s: indoor history request failed; live measurements "
                             "remain available: %s",
