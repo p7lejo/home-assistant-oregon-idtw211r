@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.23** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.25** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
@@ -40,6 +40,16 @@ device_class: humidity
 Temperature entities similarly provide `min_temperature` and `max_temperature` attributes. The values are available for indoor temperature/humidity and for each available outdoor channel.
 
 The implementation is based on protocol information from the original Raspberry Pi/bluepy project linked below. No bluepy, gatttool or hcitool installation is required.
+
+## Experimental history diagnostics
+
+Version 0.2.25 adds an initial diagnostic-only request for the internal sensor history. After the first successful live measurement update, the integration writes `81 11 FF` to the history command characteristic (ATT value handle `0x0011`) and collects notifications from ATT value handle `0x0014`.
+
+The observed 18-byte notification contains a start index followed by five hourly samples. Each sample currently decodes as a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. The observed missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
+
+For visual verification, debug logging prints the temperature and humidity sequences in blocks of 24 samples. Enable the integration's debug logger as described below.
+
+This is deliberately not yet exposed as entities or imported into Home Assistant statistics. The mapping from indices to exact timestamps, the meaning of the complete seven-day buffer, and the external-channel addressing still need validation. The request is attempted once per coordinator lifetime; failure does not affect live measurements.
 
 ## Important: IDTW211R vs IDTW213R
 
