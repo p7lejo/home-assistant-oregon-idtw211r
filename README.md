@@ -136,3 +136,17 @@ Useful log messages include Bluetooth reachability, GATT connection attempts, th
 This is an independent community integration and is not affiliated with Oregon Scientific.
 
 Further IDTW21xR models and additional channels will be added only after validation against real devices.
+
+### Internal history: current findings (14 November 2026)
+
+The first real-device diagnostic log contained 170 indexed sample positions, of which 47 contained data. The decoded values form two consecutive daily sequences:
+
+- **Saturday:** 24 valid hourly values. In chronological interpretation, the sequence runs from 00:00 to the end of the day; the humidity values begin around 77 % and end around 74 %.
+- **Friday:** 23 valid hourly values. The chronological sequence begins at 01:00 with about 77 %; the 00:00 value is missing.
+
+The history is therefore interpreted in reverse chronological order in the received data: the newest samples arrive first. The diagnostic output must reverse the received sample order before presenting the values chronologically. Missing samples must remain explicit gaps and must not shift the timestamps of subsequent samples.
+
+This interpretation is based on inspection of the values and the user's comparison with the Weather@Home app. It is not yet a verified mapping from BLE packet indices to calendar dates and clock times. In particular, the log contains 170 indexed positions although a seven-day series would contain 168 hourly positions. The meaning of the two additional positions, the exact index offset and the day-boundary mapping remain open questions.
+
+No historical entities, timestamps or Home Assistant statistics should be created until the packet-index mapping has been verified against further captures.
+
