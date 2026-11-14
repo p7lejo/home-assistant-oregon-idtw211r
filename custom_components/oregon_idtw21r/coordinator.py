@@ -549,8 +549,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                     "humidity %%RH: %s",
                                     self.device_name,
                                     start // 24 + 1,
-                                    sorted(history_samples)[start],
-                                    sorted(history_samples)[end - 1],
+                                    history_indices[start],
+                                    history_indices[end - 1],
                                     humidities[start:end],
                                 )
                         else:
