@@ -12,7 +12,7 @@
 ## 0.2.25
 
 ### Added
-- Add an initial diagnostic-only reader for the internal hourly history using the observed BLE command `81 11 FF`.
+- Add an initial diagnostic-only reader for the hourly history stream selected by BLE command `81 11 FF` (identified in 0.2.26 as outdoor channel 2, not the internal sensor).
 - Decode five temperature/humidity samples per history notification and log the indexed series in 24-sample blocks for visual verification.
 - Request the history once per coordinator lifetime; history failures do not affect live measurements.
 - Keep historical values out of Home Assistant entities and statistics until timestamp, channel addressing and protocol details are validated.
