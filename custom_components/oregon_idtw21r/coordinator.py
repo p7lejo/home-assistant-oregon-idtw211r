@@ -25,7 +25,13 @@ NOTIFICATION_CHAR_HANDLE = 0x16
 MIN_PACKET_LENGTH = 20
 HISTORY_COMMAND_CHAR_HANDLE = 0x10  # ATT value handle 0x0011
 HISTORY_NOTIFICATION_CHAR_HANDLE = 0x13  # ATT value handle 0x0014
-HISTORY_COMMAND = bytes((0x81, 0x11, 0xFF))
+HISTORY_CHANNELS = (
+    (0x10, "outdoor channel 1"),
+    (0x11, "outdoor channel 2"),
+    (0x00, "indoor"),
+)
+HISTORY_COMMAND_PREFIX = 0x81
+HISTORY_COMMAND_SUFFIX = 0xFF
 PROTOCOL_CCCD_HANDLES = (
     0x000C,
     0x000F,
@@ -65,14 +71,18 @@ def _format_temperature(value: float | None) -> str:
 
 def _decode_history_packet(
     packet: bytes,
-) -> tuple[int, list[tuple[float | None, int | None]]] | None:
+) -> tuple[int, int, list[tuple[float | None, int | None]]] | None:
     """Decode one five-sample hourly history notification.
 
     The observed packet format is:
     type, start index, five repetitions of temperature (int16 LE / 10)
     and humidity (uint8), followed by 0x01.
     """
-    if len(packet) != 18 or packet[0] != 0x11 or packet[-1] != 0x01:
+    if (
+        len(packet) != 18
+        or packet[0] not in {channel for channel, _ in HISTORY_CHANNELS}
+        or packet[-1] != 0x01
+    ):
         return None
 
     samples: list[tuple[float | None, int | None]] = []
@@ -88,7 +98,7 @@ def _decode_history_packet(
         humidity = None if raw_humidity == 0x7F else raw_humidity
         samples.append((temperature, humidity))
 
-    return packet[1], samples
+    return packet[0], packet[1], samples
 
 
 def _decode_low_battery_flags(packet: bytes) -> dict[str, bool]:
@@ -227,7 +237,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         low_battery_flags: dict[str, bool] = {}
         notification_event = asyncio.Event()
         history_event = asyncio.Event()
-        history_samples: dict[int, tuple[float | None, int | None]] = {}
+        history_samples: dict[
+            int, dict[int, tuple[float | None, int | None]]
+        ] = {channel: {} for channel, _ in HISTORY_CHANNELS}
 
         def notification_handler(_: Any, data: bytearray) -> None:
             nonlocal type0, type1
@@ -265,9 +277,10 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if characteristic_handle == HISTORY_NOTIFICATION_CHAR_HANDLE:
                     decoded_history = _decode_history_packet(packet)
                     if decoded_history is not None:
-                        first_index, samples = decoded_history
+                        channel, first_index, samples = decoded_history
+                        channel_samples = history_samples[channel]
                         for offset, sample in enumerate(samples):
-                            history_samples[first_index + offset] = sample
+                            channel_samples[first_index + offset] = sample
                         history_event.set()
 
                 decoded_flags = _decode_low_battery_flags(packet)
@@ -466,8 +479,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     result["battery"] = raw_battery[0]
 
             if not self._history_attempted:
-                # History is diagnostic-only for now. Do not let an unsupported
-                # history command interfere with the live measurement update.
+                # History is diagnostic-only for now. Read the indoor sensor
+                # and outdoor channels 1 and 2 independently. A missing or
+                # unsupported channel must not interfere with live measurements.
                 self._history_attempted = True
                 history_command_char = _find_characteristic(
                     services, HISTORY_COMMAND_CHAR_HANDLE
@@ -481,91 +495,109 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         HISTORY_COMMAND_CHAR_HANDLE,
                     )
                 else:
-                    try:
-                        _LOGGER.debug(
-                            "%s: requesting indoor hourly history with command %s",
-                            self.device_name,
-                            HISTORY_COMMAND.hex(" "),
+                    for channel, channel_name in HISTORY_CHANNELS:
+                        command = bytes(
+                            (HISTORY_COMMAND_PREFIX, channel, HISTORY_COMMAND_SUFFIX)
                         )
-                        await client.write_gatt_char(
-                            history_command_char, HISTORY_COMMAND, response=True
-                        )
-
-                        # History arrives as a burst of notifications. Wait until
-                        # there has been no new packet for two seconds, with a
-                        # hard upper bound so a slow/unsupported station cannot
-                        # hold the coordinator refresh indefinitely.
-                        loop = asyncio.get_running_loop()
-                        history_deadline = loop.time() + 15
-                        while loop.time() < history_deadline:
-                            remaining = history_deadline - loop.time()
-                            try:
-                                await asyncio.wait_for(
-                                    history_event.wait(),
-                                    timeout=min(2.0, remaining),
-                                )
-                            except TimeoutError:
-                                break
-                            history_event.clear()
-
-                        if history_samples:
-                            ordered_samples = [
-                                history_samples[index]
-                                for index in sorted(history_samples)
-                            ]
-                            temperatures = [
-                                sample[0] for sample in ordered_samples
-                            ]
-                            humidities = [
-                                sample[1] for sample in ordered_samples
-                            ]
-                            valid_count = sum(
-                                temperature is not None or humidity is not None
-                                for temperature, humidity in ordered_samples
-                            )
+                        channel_samples = history_samples[channel]
+                        history_event.clear()
+                        try:
                             _LOGGER.debug(
-                                "%s: indoor history received: %d indexed samples "
-                                "(%d containing data), indices %d..%d",
+                                "%s: requesting %s hourly history with command %s",
                                 self.device_name,
-                                len(ordered_samples),
-                                valid_count,
-                                min(history_samples),
-                                max(history_samples),
+                                channel_name,
+                                command.hex(" "),
                             )
-                            history_indices = sorted(history_samples)
-                            for start in range(0, len(ordered_samples), 24):
-                                end = min(start + 24, len(ordered_samples))
-                                _LOGGER.debug(
-                                    "%s: indoor history block %d (indices %d..%d) "
-                                    "temperature °C: %s",
-                                    self.device_name,
-                                    start // 24 + 1,
-                                    history_indices[start],
-                                    history_indices[end - 1],
-                                    temperatures[start:end],
+                            await client.write_gatt_char(
+                                history_command_char, command, response=True
+                            )
+
+                            # Each channel returns a burst of indexed notifications.
+                            # Stop after two quiet seconds, with a 15-second hard
+                            # limit for a slow or unsupported channel.
+                            loop = asyncio.get_running_loop()
+                            history_deadline = loop.time() + 15
+                            while loop.time() < history_deadline:
+                                remaining = history_deadline - loop.time()
+                                try:
+                                    await asyncio.wait_for(
+                                        history_event.wait(),
+                                        timeout=min(2.0, remaining),
+                                    )
+                                except TimeoutError:
+                                    break
+                                history_event.clear()
+
+                            if channel_samples:
+                                history_indices = sorted(channel_samples)
+                                ordered_samples = [
+                                    channel_samples[index] for index in history_indices
+                                ]
+                                temperatures = [
+                                    sample[0] for sample in ordered_samples
+                                ]
+                                humidities = [
+                                    sample[1] for sample in ordered_samples
+                                ]
+                                valid_count = sum(
+                                    temperature is not None or humidity is not None
+                                    for temperature, humidity in ordered_samples
                                 )
                                 _LOGGER.debug(
-                                    "%s: indoor history block %d (indices %d..%d) "
-                                    "humidity %%RH: %s",
+                                    "%s: %s history received: %d indexed samples "
+                                    "(%d containing data), indices %d..%d",
                                     self.device_name,
-                                    start // 24 + 1,
-                                    history_indices[start],
-                                    history_indices[end - 1],
-                                    humidities[start:end],
+                                    channel_name,
+                                    len(ordered_samples),
+                                    valid_count,
+                                    min(history_indices),
+                                    max(history_indices),
                                 )
-                        else:
+                                for block_start in range(0, len(ordered_samples), 24):
+                                    block_end = min(
+                                        block_start + 24, len(ordered_samples)
+                                    )
+                                    block_number = block_start // 24 + 1
+                                    _LOGGER.debug(
+                                        "%s: %s history block %d (indices %d..%d) "
+                                        "temperature °C: %s",
+                                        self.device_name,
+                                        channel_name,
+                                        block_number,
+                                        history_indices[block_start],
+                                        history_indices[block_end - 1],
+                                        temperatures[block_start:block_end],
+                                    )
+                                    _LOGGER.debug(
+                                        "%s: %s history block %d (indices %d..%d) "
+                                        "humidity %%RH: %s",
+                                        self.device_name,
+                                        channel_name,
+                                        block_number,
+                                        history_indices[block_start],
+                                        history_indices[block_end - 1],
+                                        humidities[block_start:block_end],
+                                    )
+                            else:
+                                _LOGGER.debug(
+                                    "%s: no %s history notifications received",
+                                    self.device_name,
+                                    channel_name,
+                                )
+                        except (
+                            BleakError,
+                            OSError,
+                            ValueError,
+                            TimeoutError,
+                        ) as err:
                             _LOGGER.debug(
-                                "%s: no indoor history notifications received",
+                                "%s: %s history request failed; live measurements "
+                                "remain available: %s",
                                 self.device_name,
+                                channel_name,
+                                err,
+                                exc_info=True,
                             )
-                    except (BleakError, OSError, ValueError, TimeoutError) as err:
-                        _LOGGER.debug(
-                            "%s: indoor history request failed; live measurements "
-                            "remain available: %s",
-                            self.device_name,
-                            err,
-                            exc_info=True,
-                        )
 
             _LOGGER.info(
                 "%s: measurements: indoor %s °C / %s %%RH; "
