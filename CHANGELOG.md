@@ -1,9 +1,18 @@
 # Changelog
 
+## 0.2.26
+
+### Added
+- Extend diagnostic hourly-history retrieval from the internal sensor to outdoor channels 1 and 2.
+- Send the observed channel-specific requests: `81 00 FF` (indoor), `81 10 FF` (outdoor 1) and `81 11 FF` (outdoor 2).
+- Decode and log each channel independently, including channels that respond only with missing-value markers.
+- Keep history diagnostic-only; no historical entities or statistics are created.
+
+
 ## 0.2.25
 
 ### Added
-- Add an initial diagnostic-only reader for the internal hourly history using the observed BLE command `81 11 FF`.
+- Add an initial diagnostic-only reader for the hourly history stream selected by BLE command `81 11 FF` (identified in 0.2.26 as outdoor channel 2, not the internal sensor).
 - Decode five temperature/humidity samples per history notification and log the indexed series in 24-sample blocks for visual verification.
 - Request the history once per coordinator lifetime; history failures do not affect live measurements.
 - Keep historical values out of Home Assistant entities and statistics until timestamp, channel addressing and protocol details are validated.
