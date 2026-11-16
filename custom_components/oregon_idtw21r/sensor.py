@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import (
     PERCENTAGE,
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
@@ -118,6 +122,8 @@ class OregonSensor(CoordinatorEntity[OregonIDTW21RCoordinator], SensorEntity):
         self._attr_unique_id = f"{entry_id}_{key}"
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
+        if device_class in (SensorDeviceClass.TEMPERATURE, SensorDeviceClass.HUMIDITY):
+            self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_has_entity_name = True
 
         outdoor_channel = OUTDOOR_SENSOR_KEYS.get(key)
