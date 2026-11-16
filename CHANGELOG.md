@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.26
+
+### Added
+- Extend diagnostic hourly-history retrieval from the internal sensor to outdoor channels 1 and 2.
+- Send the observed channel-specific requests: `81 00 FF` (indoor), `81 10 FF` (outdoor 1) and `81 11 FF` (outdoor 2).
+- Decode and log each channel independently, including channels that respond only with missing-value markers.
+- Keep history diagnostic-only; no historical entities or statistics are created.
+
+
 ## 0.2.25
 
 ### Added
