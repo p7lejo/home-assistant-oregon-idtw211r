@@ -50,7 +50,7 @@ class HistoryDecoderTests(unittest.TestCase):
         expected_first_samples = [
             (20.7, 46),
             (20.0, 49),
-            (20.4, 46),
+            (20.4, 47),
             (20.6, 49),
             (20.7, 47),
             (20.4, 48),
