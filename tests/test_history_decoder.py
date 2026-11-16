@@ -47,18 +47,18 @@ class HistoryDecoderTests(unittest.TestCase):
             "00 3d cc 00 30 cb 00 30 ca 00 30 c8 00 30 c8 00 31 31",
             "00 42 c8 00 30 c8 00 30 c8 00 30 c8 00 30 c7 00 30 31",
         ]
-        expected_first_samples = [
-            (20.7, 46),
-            (20.0, 49),
-            (20.4, 47),
-            (20.6, 49),
-            (20.7, 47),
-            (20.4, 48),
-            (20.0, 48),
+        expected_samples = [
+            [(20.7, 46), (20.5, 47), (20.3, 48), (20.2, 48), (20.1, 49)],
+            [(20.0, 49), (20.0, 49), (20.0, 48), (20.1, 48), (20.2, 48)],
+            [(20.4, 47), (21.2, 46), (23.3, 45), (23.3, 49), (20.4, 48)],
+            [(20.6, 49), (20.7, 48), (20.3, 47), (20.3, 47), (20.5, 47)],
+            [(20.7, 47), (21.4, 47), (21.3, 48), (21.0, 48), (20.6, 48)],
+            [(20.4, 48), (20.3, 48), (20.2, 48), (20.0, 48), (20.0, 49)],
+            [(20.0, 48), (20.0, 48), (20.0, 48), (20.0, 48), (19.9, 48)],
         ]
 
-        for offset, (raw, expected_sample) in enumerate(
-            zip(packets, expected_first_samples, strict=True)
+        for offset, (raw, expected_packet_samples) in enumerate(
+            zip(packets, expected_samples, strict=True)
         ):
             with self.subTest(packet=offset):
                 packet = bytes.fromhex(raw)
@@ -68,7 +68,7 @@ class HistoryDecoderTests(unittest.TestCase):
                 self.assertEqual(channel, 0x00)
                 self.assertEqual(start_index, 0x24 + offset * 5)
                 self.assertEqual(len(samples), 5)
-                self.assertEqual(samples[0], expected_sample)
+                self.assertEqual(samples, expected_packet_samples)
 
     def test_existing_terminators_remain_supported(self):
         base = bytearray.fromhex(
