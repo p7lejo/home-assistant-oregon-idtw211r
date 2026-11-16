@@ -1,10 +1,21 @@
 # Changelog
 
+## 0.2.28
+
+### Added
+- Retain decoded hourly BLE history for indoor (`0x00`) and outdoor channels 1 (`0x10`) and 2 (`0x11`) as structured coordinator data.
+- Include indexed temperature and humidity samples, independent validity flags, channel status and live sensor entity/statistic ID candidates in Home Assistant diagnostics.
+- Set temperature and humidity entities to `state_class: measurement`, allowing Home Assistant to create long-term statistics for new readings.
+- Include provisional local timestamps and UTC statistics start times. Hourly arithmetic is performed in UTC to remain consistent across daylight-saving transitions.
+
+### Safety
+- The index-to-time mapping is explicitly marked unverified. Index 1 is provisionally anchored to the start of the current local hour based on the synchronized station clock and newest-first ordering.
+- Statistics comparison, import and overwrite remain disabled until the timestamp mapping is checked against the station/app history on the real device.
+
 ## 0.2.27
 
 ### Fixed
-- Recognize the actual history-packet terminator `0x26` seen in the IDTW213R GATT log. Continue accepting the earlier observed `0x01` terminator for compatibility; previously, packets were logged raw but discarded by the history decoder, so the temperature/humidity series were missing.
-
+- Recognize the actual IDTW213R history-packet terminator `0x26` while retaining compatibility with the earlier observed `0x01` terminator. Previously, these packets were logged raw but rejected by the history decoder.
 
 ## 0.2.26
 
