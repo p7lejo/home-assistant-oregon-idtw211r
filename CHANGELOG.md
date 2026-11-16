@@ -2,6 +2,9 @@
 
 ## 0.2.26
 
+### Fixed
+- Recognize the actual history-packet terminator `0x26` seen in the IDTW213R GATT log. Continue accepting the earlier observed `0x01` terminator for compatibility; previously, packets were logged raw but discarded by the history decoder, so the temperature/humidity series were missing.
+
 ### Added
 - Extend diagnostic hourly-history retrieval from the internal sensor to outdoor channels 1 and 2.
 - Send the observed channel-specific requests: `81 00 FF` (indoor), `81 10 FF` (outdoor 1) and `81 11 FF` (outdoor 2).
