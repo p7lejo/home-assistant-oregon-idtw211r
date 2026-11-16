@@ -77,14 +77,14 @@ def _decode_history_packet(
 
     The observed packet format is:
     type, start index, five repetitions of temperature (int16 LE / 10)
-    and humidity (uint8), followed by the packet terminator. Captured
-    IDTW213R history packets use 0x26; 0x01 is also accepted for compatibility
-    with the earlier capture format.
+    and humidity (uint8), followed by the packet terminator. IDTW213R
+    captures have been observed with terminators 0x26 and 0x31;
+    0x01 is also accepted for compatibility with an earlier capture format.
     """
     if (
         len(packet) != 18
         or packet[0] not in {channel for channel, _ in HISTORY_CHANNELS}
-        or packet[-1] not in {0x01, 0x26}
+        or packet[-1] not in {0x01, 0x26, 0x31}
     ):
         return None
 

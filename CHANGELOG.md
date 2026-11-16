@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.29
+
+### Fixed
+- Accept the additional observed IDTW213R history notification terminator `0x31`, while retaining compatibility with `0x26` and legacy `0x01` packets. The 18-byte packet layout and five-sample decoding remain unchanged.
+- Add regression coverage using all seven indoor history packets captured from a real device, including their channel, start indices and decoded sample values.
+
 ## 0.2.28
 
 ### Added
