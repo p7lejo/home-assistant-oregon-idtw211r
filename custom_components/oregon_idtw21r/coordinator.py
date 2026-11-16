@@ -14,6 +14,7 @@ from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -210,6 +211,14 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_name = entry.data.get("name", "Oregon Scientific IDTW21xR")
         self.hass = hass
         self._history_attempted = False
+        self.history_samples: dict[int, dict[int, tuple[float | None, int | None]]] = {
+            channel: {} for channel, _ in HISTORY_CHANNELS
+        }
+        self.history_status: dict[int, str] = {
+            channel: "not_requested" for channel, _ in HISTORY_CHANNELS
+        }
+        self.history_captured_at = None
+        self.history_reference_time = None
         super().__init__(
             hass,
             _LOGGER,
@@ -239,9 +248,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         low_battery_flags: dict[str, bool] = {}
         notification_event = asyncio.Event()
         history_event = asyncio.Event()
-        history_samples: dict[
-            int, dict[int, tuple[float | None, int | None]]
-        ] = {channel: {} for channel, _ in HISTORY_CHANNELS}
+        history_samples = self.history_samples
 
         def notification_handler(_: Any, data: bytearray) -> None:
             nonlocal type0, type1
@@ -283,6 +290,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         channel_samples = history_samples[channel]
                         for offset, sample in enumerate(samples):
                             channel_samples[first_index + offset] = sample
+                        self.history_status[channel] = "received"
+                        self.history_captured_at = dt_util.utcnow()
                         history_event.set()
 
                 decoded_flags = _decode_low_battery_flags(packet)
@@ -491,17 +500,25 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if history_command_char is None or "write" not in set(
                     history_command_char.properties
                 ):
+                    for channel, _ in HISTORY_CHANNELS:
+                        self.history_status[channel] = "unsupported"
                     _LOGGER.debug(
                         "%s: history command characteristic 0x%04x is not writable",
                         self.device_name,
                         HISTORY_COMMAND_CHAR_HANDLE,
                     )
                 else:
+                    # The station clock is synchronized with the mobile app. The
+                    # user confirms the history is newest-first, with index 1 at
+                    # the current station hour. Capture one stable reference for
+                    # all channels so a multi-channel read cannot shift timestamps.
+                    self.history_reference_time = dt_util.now()
                     for channel, channel_name in HISTORY_CHANNELS:
                         command = bytes(
                             (HISTORY_COMMAND_PREFIX, channel, HISTORY_COMMAND_SUFFIX)
                         )
                         channel_samples = history_samples[channel]
+                        self.history_status[channel] = "requested"
                         history_event.clear()
                         try:
                             _LOGGER.debug(
@@ -581,6 +598,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                         humidities[block_start:block_end],
                                     )
                             else:
+                                self.history_status[channel] = "no_notifications"
                                 _LOGGER.debug(
                                     "%s: no %s history notifications received",
                                     self.device_name,
@@ -592,6 +610,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             ValueError,
                             TimeoutError,
                         ) as err:
+                            self.history_status[channel] = "request_failed"
                             _LOGGER.debug(
                                 "%s: %s history request failed; live measurements "
                                 "remain available: %s",
@@ -600,6 +619,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 err,
                                 exc_info=True,
                             )
+
+                self.history_captured_at = dt_util.utcnow()
 
             _LOGGER.info(
                 "%s: measurements: indoor %s °C / %s %%RH; "
