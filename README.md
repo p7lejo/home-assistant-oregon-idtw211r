@@ -43,11 +43,11 @@ The implementation is based on protocol information from the original Raspberry 
 
 ## Experimental history diagnostics
 
-Version 0.2.25 adds an initial diagnostic-only request for the internal sensor history. After the first successful live measurement update, the integration writes `81 11 FF` to the history command characteristic (ATT value handle `0x0011`) and collects notifications from ATT value handle `0x0014`.
+Version 0.2.26 expands the diagnostic-only history reader to the indoor sensor and outdoor channels 1 and 2. After the first successful live measurement update, the integration sends one request per channel to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the indoor sensor, `81 10 FF` for outdoor channel 1 and `81 11 FF` for outdoor channel 2. Responses are collected from ATT value handle `0x0014` and logged separately. The channel mapping is based on the observed mobile-app BLE requests; `0x11` is outdoor channel 2 (not the indoor sensor).
 
 The observed 18-byte notification contains a start index followed by five hourly samples. Each sample currently decodes as a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. The observed missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
 
-For visual verification, debug logging prints the temperature and humidity sequences in blocks of 24 samples. Enable the integration's debug logger as described below.
+For visual verification, debug logging prints the temperature and humidity sequences for each channel in blocks of 24 samples. If a channel responds but has no stored measurements, its indexed samples are logged as missing values; if it does not respond, a separate no-notifications message is logged. In the captured session, channel `0x10` responded with missing-value markers only, while `0x00` and `0x11` contained valid history. The received history is in reverse chronological order. Exact timestamp mapping is still not established. Enable the integration's debug logger as described below.
 
 This is deliberately not yet exposed as entities or imported into Home Assistant statistics. The mapping from indices to exact timestamps, the meaning of the complete seven-day buffer, and the external-channel addressing still need validation. The request is attempted once per coordinator lifetime; failure does not affect live measurements.
 
