@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.27
+
+### Fixed
+- Recognize the actual history-packet terminator `0x26` seen in the IDTW213R GATT log. Continue accepting the earlier observed `0x01` terminator for compatibility; previously, packets were logged raw but discarded by the history decoder, so the temperature/humidity series were missing.
+
+
 ## 0.2.26
 
 ### Added
