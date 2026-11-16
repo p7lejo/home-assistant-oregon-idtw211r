@@ -43,7 +43,7 @@ The implementation is based on protocol information from the original Raspberry 
 
 ## Experimental history diagnostics
 
-Version 0.2.26 expands the diagnostic-only history reader to the indoor sensor and outdoor channels 1 and 2. After the first successful live measurement update, the integration sends one request per channel to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the indoor sensor, `81 10 FF` for outdoor channel 1 and `81 11 FF` for outdoor channel 2. Responses are collected from ATT value handle `0x0014` and logged separately. The channel mapping is based on the observed mobile-app BLE requests; `0x11` is outdoor channel 2 (not the indoor sensor).
+Version 0.2.26 expands the diagnostic-only history reader to the indoor sensor and outdoor channels 1 and 2. After the first successful live measurement update, the integration sends one request per channel to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the indoor sensor, `81 10 FF` for outdoor channel 1 (the channel assignment is inferred from the command sequence) and `81 11 FF` for outdoor channel 2. Responses are collected from ATT value handle `0x0014` and logged separately. The channel mapping is based on the observed mobile-app BLE requests; `0x11` is outdoor channel 2 (not the indoor sensor).
 
 The observed 18-byte notification contains a start index followed by five hourly samples. Each sample currently decodes as a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. The observed missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
 
