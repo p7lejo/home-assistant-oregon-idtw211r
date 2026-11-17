@@ -53,7 +53,11 @@ class OregonHistoryButton(CoordinatorEntity[OregonIDTW21RCoordinator], ButtonEnt
         self._mode = mode
         self._attr_name = name
         self._attr_icon = icon
-        self._attr_unique_id = f"{entry_id}_history_{channel:02x}_{mode}"
+        self._attr_unique_id = (
+            f"{entry_id}_history_{channel:02x}"
+            if mode == "read"
+            else f"{entry_id}_history_{channel:02x}_{mode}"
+        )
         if outdoor_channel is None:
             self._attr_device_info = DeviceInfo(
                 identifiers={(DOMAIN, coordinator.address)},
