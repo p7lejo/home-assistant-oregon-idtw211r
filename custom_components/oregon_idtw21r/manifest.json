@@ -17,8 +17,8 @@
   ],
   "documentation": "https://github.com/p7lejo/home-assistant-oregon-idtw211r",
   "integration_type": "device",
-  "issue_tracker": "https://github.com/p7lejo/home-assistant-oregon-idtw211r/issues",
   "iot_class": "local_push",
+  "issue_tracker": "https://github.com/p7lejo/home-assistant-oregon-idtw211r/issues",
   "requirements": [],
   "version": "0.2.34"
 }
