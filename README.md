@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.31** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.32** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
@@ -45,7 +45,7 @@ The implementation is based on protocol information from the original Raspberry 
 
 Version 0.2.28 extends the diagnostic-only history reader to the indoor sensor and outdoor channels 1 and 2. After the first successful live measurement update, the integration sends one request per channel to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the indoor sensor, `81 10 FF` for outdoor channel 1 (the channel assignment is inferred from the command sequence) and `81 11 FF` for outdoor channel 2. Responses are collected from ATT value handle `0x0014` and logged separately. The channel mapping is based on the observed mobile-app BLE requests; `0x11` is outdoor channel 2 (not the indoor sensor).
 
-The observed 18-byte notification contains a channel identifier, a start index, five hourly samples and a trailing packet marker. Each sample decodes as a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. Observed IDTW213R captures have trailing bytes `0x26`, `0x31`, `0x3D` and `0x48`; the earlier observed `0x01` value remains accepted for compatibility. Their exact protocol meaning is not yet established. The missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
+The observed history notification is 18 bytes long: a channel identifier, a start index, five hourly samples and one trailing byte of unknown meaning. The decoder validates the 18-byte packet length and channel identifier, then decodes only the first 17 bytes; the trailing byte is ignored. This avoids rejecting otherwise valid history data when that byte changes. Captures have shown `0x01`, `0x26`, `0x31`, `0x3D` and `0x48`, but the protocol meaning of the final byte has not been established. Each sample contains a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. The missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
 
 The decoded history is now retained as structured data and included in the integration's **Download diagnostics** output. Each channel contains indexed samples, decoded temperature and humidity, independent validity flags, and the corresponding live sensor entity/statistic ID candidates. Channels that did not respond are distinguished from channels that returned missing-value markers. The request is attempted once per coordinator lifetime; failure does not affect live measurements.
 

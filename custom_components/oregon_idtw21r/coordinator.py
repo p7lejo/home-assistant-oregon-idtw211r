@@ -75,33 +75,33 @@ def _decode_history_packet(
 ) -> tuple[int, int, list[tuple[float | None, int | None]]] | None:
     """Decode one five-sample hourly history notification.
 
-    The observed packet format is:
-    type, start index, five repetitions of temperature (int16 LE / 10)
-    and humidity (uint8), followed by the packet terminator. IDTW213R
-    captures have been observed with trailing bytes 0x26, 0x31, 0x3D and 0x48;
-    0x01 is also accepted for compatibility with an earlier capture format.
+    The observed packet format is 18 bytes: channel, start index, five
+    repetitions of temperature (int16 LE / 10) and humidity (uint8), followed
+    by one trailing byte whose meaning is unknown. Validate the packet length,
+    then decode only the first 17 bytes. The trailing byte is intentionally
+    ignored because its observed value varies between captures.
     """
-    if (
-        len(packet) != 18
-        or packet[0] not in {channel for channel, _ in HISTORY_CHANNELS}
-        or packet[-1] not in {0x01, 0x26, 0x31, 0x3D, 0x48}
-    ):
+    if len(packet) != 18:
+        return None
+
+    payload = packet[:17]
+    if payload[0] not in {channel for channel, _ in HISTORY_CHANNELS}:
         return None
 
     samples: list[tuple[float | None, int | None]] = []
     for sample_offset in range(5):
         offset = 2 + sample_offset * 3
         raw_temperature = int.from_bytes(
-            packet[offset : offset + 2], "little", signed=True
+            payload[offset : offset + 2], "little", signed=True
         )
         temperature = (
             None if raw_temperature == 0x7FFF else raw_temperature / 10
         )
-        raw_humidity = packet[offset + 2]
+        raw_humidity = payload[offset + 2]
         humidity = None if raw_humidity == 0x7F else raw_humidity
         samples.append((temperature, humidity))
 
-    return packet[0], packet[1], samples
+    return payload[0], payload[1], samples
 
 
 def _decode_low_battery_flags(packet: bytes) -> dict[str, bool]:

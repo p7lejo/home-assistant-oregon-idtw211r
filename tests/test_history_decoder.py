@@ -70,14 +70,21 @@ class HistoryDecoderTests(unittest.TestCase):
                 self.assertEqual(len(samples), 5)
                 self.assertEqual(samples, expected_packet_samples)
 
-    def test_existing_terminators_remain_supported(self):
+    def test_observed_trailing_bytes_are_ignored(self):
         base = bytearray.fromhex(
             "00 01 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
         )
-        for terminator in (0x01, 0x26, 0x31, 0x3D, 0x48):
-            with self.subTest(terminator=terminator):
-                packet = bytes(base[:-1] + bytes([terminator]))
-                self.assertIsNotNone(decode_history_packet(packet))
+        for trailing_byte in (0x01, 0x26, 0x31, 0x3D, 0x48, 0x99):
+            with self.subTest(trailing_byte=trailing_byte):
+                packet = bytes(base[:-1] + bytes([trailing_byte]))
+                decoded = decode_history_packet(packet)
+                self.assertIsNotNone(decoded)
+                self.assertEqual(decoded[0], 0x00)
+                self.assertEqual(decoded[1], 0x01)
+                self.assertEqual(
+                    decoded[2],
+                    [(20.7, 46), (20.5, 47), (20.3, 48), (20.2, 48), (20.1, 49)],
+                )
 
 
     def test_captured_0x3d_packets_decode_for_all_channels(self):
@@ -130,18 +137,12 @@ class HistoryDecoderTests(unittest.TestCase):
                 self.assertEqual(start_index, expected_index)
                 self.assertEqual(samples, expected_samples)
 
-    def test_unknown_terminator_is_rejected(self):
-        packet = bytearray.fromhex(
-            "00 24 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
-        )
-        packet[-1] = 0x32
-        self.assertIsNone(decode_history_packet(bytes(packet)))
-
     def test_wrong_packet_length_is_rejected(self):
         packet = bytes.fromhex(
             "00 24 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
         )
         self.assertIsNone(decode_history_packet(packet[:-1]))
+        self.assertIsNone(decode_history_packet(packet + bytes([0])))
 
 
 if __name__ == "__main__":
