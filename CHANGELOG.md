@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.35
+
+### Added
+- Add a dedicated manual history button for outdoor channel 3, using the same per-channel BLE history request as the Oregon mobile app.
+- Decode channel 3 hourly temperature history and compare it with Home Assistant temperature statistics; humidity remains unavailable because the physical sensor does not provide it.
+- Add a protocol regression test for channel 3 packets with missing humidity values.
+
 ## 0.2.34
 
 ### Added
