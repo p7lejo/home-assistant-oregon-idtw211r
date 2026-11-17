@@ -1,11 +1,18 @@
 # Changelog
 
+## 0.2.36
+
+### Fixed
+- Accept the newly observed `0x4A` trailing byte in 18-byte hourly history notifications; the decoder continues to ignore the trailing byte rather than treating it as a fixed terminator.
+- Decode channel 3 humidity bytes normally and include its humidity entity in the HA hourly-statistics comparison. Missing humidity remains `None` via the protocol sentinel, while a future humidity-capable channel 3 sensor will be supported without code changes.
+- Add regression tests for the `0x4A` packet and for both missing and present channel 3 humidity values.
+
 ## 0.2.35
 
 ### Added
 - Add a dedicated manual history button for outdoor channel 3, using the same per-channel BLE history request as the Oregon mobile app.
-- Decode channel 3 hourly temperature history and compare it with Home Assistant temperature statistics; humidity remains unavailable because the physical sensor does not provide it.
-- Add a protocol regression test for channel 3 packets with missing humidity values.
+- Decode channel 3 hourly temperature and humidity fields and compare them with Home Assistant statistics.
+- Add a protocol regression test for channel 3 history packets.
 
 ## 0.2.34
 
