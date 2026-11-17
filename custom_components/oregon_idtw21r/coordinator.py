@@ -31,6 +31,7 @@ HISTORY_NOTIFICATION_CHAR_HANDLE = 0x13  # ATT value handle 0x0014
 HISTORY_CHANNELS = (
     (0x10, "outdoor channel 1"),
     (0x11, "outdoor channel 2"),
+    (0x12, "outdoor channel 3"),
     (0x00, "indoor"),
 )
 HISTORY_COMMAND_PREFIX = 0x81
@@ -267,6 +268,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             0x00: ("temperature_indoor", "humidity_indoor"),
             0x10: ("temperature_outdoor", "humidity_outdoor_1"),
             0x11: ("temperature_outdoor_2", "humidity_outdoor_2"),
+            # Outdoor channel 3 provides temperature only; its humidity is
+            # not available from the physical sensor.
+            0x12: ("temperature_outdoor_3", None),
         }
         channel_name = dict(HISTORY_CHANNELS)[channel]
         temperature_key, humidity_key = entity_keys[channel]
@@ -275,8 +279,12 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "temperature": registry.async_get_entity_id(
                 "sensor", DOMAIN, f"{self.entry_id}_{temperature_key}"
             ),
-            "humidity": registry.async_get_entity_id(
-                "sensor", DOMAIN, f"{self.entry_id}_{humidity_key}"
+            "humidity": (
+                registry.async_get_entity_id(
+                    "sensor", DOMAIN, f"{self.entry_id}_{humidity_key}"
+                )
+                if humidity_key is not None
+                else None
             ),
         }
         statistic_ids = {value for value in entity_ids.values() if value}
