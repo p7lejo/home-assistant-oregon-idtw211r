@@ -24,7 +24,10 @@ def load_decoder():
             for target in node.targets
         ):
             selected.append(node)
-        elif isinstance(node, ast.FunctionDef) and node.name == "_decode_history_packet":
+        elif isinstance(node, ast.FunctionDef) and node.name in {
+            "_history_humidity_value",
+            "_decode_history_packet",
+        }:
             selected.append(node)
 
     module = ast.Module(body=selected, type_ignores=[])
@@ -74,7 +77,7 @@ class HistoryDecoderTests(unittest.TestCase):
         base = bytearray.fromhex(
             "00 01 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
         )
-        for trailing_byte in (0x01, 0x26, 0x31, 0x3D, 0x48, 0x99):
+        for trailing_byte in (0x01, 0x26, 0x31, 0x3D, 0x48, 0x49, 0x4A, 0x99):
             with self.subTest(trailing_byte=trailing_byte):
                 packet = bytes(base[:-1] + bytes([trailing_byte]))
                 decoded = decode_history_packet(packet)
@@ -138,10 +141,10 @@ class HistoryDecoderTests(unittest.TestCase):
                 self.assertEqual(samples, expected_samples)
 
 
-    def test_channel_3_temperature_only_history_packet_decodes(self):
-        """Channel 3 history keeps temperature and accepts missing humidity."""
+    def test_channel_3_history_accepts_0x4a_terminator_and_missing_humidity(self):
+        """Channel 3 temperature history decodes with its observed 0x4A terminator."""
         packet = bytes.fromhex(
-            "12 01 5f 00 40 60 00 41 61 00 42 62 00 43 63 00 44 48"
+            "12 01 5f 00 7f 60 00 7f 61 00 7f 62 00 7f 63 00 7f 4a"
         )
         decoded = decode_history_packet(packet)
         self.assertIsNotNone(decoded)
@@ -157,6 +160,19 @@ class HistoryDecoderTests(unittest.TestCase):
                 (9.8, None),
                 (9.9, None),
             ],
+        )
+
+
+    def test_channel_3_history_preserves_available_humidity(self):
+        """Channel 3 humidity is decoded when a paired sensor provides it."""
+        packet = bytes.fromhex(
+            "12 01 5f 00 40 60 00 41 61 00 42 62 00 43 63 00 44 4a"
+        )
+        decoded = decode_history_packet(packet)
+        self.assertIsNotNone(decoded)
+        self.assertEqual(
+            decoded[2],
+            [(9.5, 64), (9.6, 65), (9.7, 66), (9.8, 67), (9.9, 68)],
         )
 
     def test_wrong_packet_length_is_rejected(self):
