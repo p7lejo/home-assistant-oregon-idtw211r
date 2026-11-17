@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.30
+
+### Fixed
+- Accept the newly observed `0x3D` terminator on 18-byte hourly history notifications. This restores decoding and plaintext temperature/humidity history logging for indoor and outdoor channels 1 and 2.
+- Add regression tests using captured `0x3D` packets from all three channels and verify their five decoded temperature/humidity samples.
+
 ## 0.2.29
 
 ### Fixed
