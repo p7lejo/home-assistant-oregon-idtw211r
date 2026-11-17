@@ -137,6 +137,28 @@ class HistoryDecoderTests(unittest.TestCase):
                 self.assertEqual(start_index, expected_index)
                 self.assertEqual(samples, expected_samples)
 
+
+    def test_channel_3_temperature_only_history_packet_decodes(self):
+        """Channel 3 history keeps temperature and accepts missing humidity."""
+        packet = bytes.fromhex(
+            "12 01 5f 00 7f 60 00 7f 61 00 7f 62 00 7f 63 00 7f 48"
+        )
+        decoded = decode_history_packet(packet)
+        self.assertIsNotNone(decoded)
+        channel, start_index, samples = decoded
+        self.assertEqual(channel, 0x12)
+        self.assertEqual(start_index, 1)
+        self.assertEqual(
+            samples,
+            [
+                (9.5, None),
+                (9.6, None),
+                (9.7, None),
+                (9.8, None),
+                (9.9, None),
+            ],
+        )
+
     def test_wrong_packet_length_is_rejected(self):
         packet = bytes.fromhex(
             "00 24 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
