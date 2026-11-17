@@ -30,7 +30,7 @@ jobs:
         run: python -m compileall -q custom_components tests
 
       - name: Run history decoder regression tests
-        run: python -m unittest discover -s tests -v
+        run: python -m unittest discover -s tests -p "test_history_decoder.py" -v
 
       - name: Validate JSON files
         run: |

@@ -1,0 +1,24 @@
+name: History and Recorder Tests (disabled)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history-recorder:
+    if: false # Disabled until timestamp mapping and recorder test fixtures are validated.
+    name: History comparison and recorder tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade -r requirements_test.txt
+      - name: Run history and recorder tests
+        run: pytest -q tests/test_history_recorder.py

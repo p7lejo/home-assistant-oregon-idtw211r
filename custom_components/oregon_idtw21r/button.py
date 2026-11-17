@@ -14,6 +14,7 @@ HISTORY_BUTTONS = (
     (0x00, None),
     (0x10, 1),
     (0x11, 2),
+    (0x12, 3),
 )
 
 

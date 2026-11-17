@@ -31,6 +31,7 @@ HISTORY_NOTIFICATION_CHAR_HANDLE = 0x13  # ATT value handle 0x0014
 HISTORY_CHANNELS = (
     (0x10, "outdoor channel 1"),
     (0x11, "outdoor channel 2"),
+    (0x12, "outdoor channel 3"),
     (0x00, "indoor"),
 )
 HISTORY_COMMAND_PREFIX = 0x81
@@ -72,6 +73,11 @@ def _format_temperature(value: float | None) -> str:
     return f"{value:.1f}" if value is not None else "n/a"
 
 
+def _history_humidity_value(value: int) -> int | None:
+    """Decode humidity and preserve Oregon's missing-value marker."""
+    return None if value == 0x7F else value
+
+
 def _decode_history_packet(
     packet: bytes,
 ) -> tuple[int, int, list[tuple[float | None, int | None]]] | None:
@@ -100,7 +106,9 @@ def _decode_history_packet(
             None if raw_temperature == 0x7FFF else raw_temperature / 10
         )
         raw_humidity = payload[offset + 2]
-        humidity = None if raw_humidity == 0x7F else raw_humidity
+        # Keep humidity decoding channel-independent: channel 3 may also be
+        # paired with a sensor that provides humidity in a future setup.
+        humidity = _history_humidity_value(raw_humidity)
         samples.append((temperature, humidity))
 
     return payload[0], payload[1], samples
@@ -267,6 +275,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             0x00: ("temperature_indoor", "humidity_indoor"),
             0x10: ("temperature_outdoor", "humidity_outdoor_1"),
             0x11: ("temperature_outdoor_2", "humidity_outdoor_2"),
+            0x12: ("temperature_outdoor_3", "humidity_outdoor_3"),
         }
         channel_name = dict(HISTORY_CHANNELS)[channel]
         temperature_key, humidity_key = entity_keys[channel]
@@ -275,8 +284,12 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "temperature": registry.async_get_entity_id(
                 "sensor", DOMAIN, f"{self.entry_id}_{temperature_key}"
             ),
-            "humidity": registry.async_get_entity_id(
-                "sensor", DOMAIN, f"{self.entry_id}_{humidity_key}"
+            "humidity": (
+                registry.async_get_entity_id(
+                    "sensor", DOMAIN, f"{self.entry_id}_{humidity_key}"
+                )
+                if humidity_key is not None
+                else None
             ),
         }
         statistic_ids = {value for value in entity_ids.values() if value}
