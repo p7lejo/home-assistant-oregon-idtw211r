@@ -311,7 +311,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 {}
                 if entity_id is None
                 else {
-                    dt_util.utc_from_timestamp(row["start"]).replace(
+                    datetime.fromtimestamp(row["start"], tz=dt_util.UTC).replace(
                         minute=0, second=0, microsecond=0
                     ): row.get("mean")
                     for row in statistics.get(entity_id, [])
