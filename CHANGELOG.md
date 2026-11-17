@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.31
+
+### Fixed
+- Accept the newly captured `0x48` trailing byte on 18-byte hourly history notifications. Without it, all 56 notifications in the 2026-11-17 evening capture were rejected, so no decoded history appeared in the debug log.
+- Add regression tests using captured `0x48` packets from indoor and both outdoor channels, including a packet containing missing-value markers.
+- Archive the complete 2026-11-17 22:06 raw capture and document that the trailing byte's protocol meaning remains unknown.
+
+
 ## 0.2.30
 
 ### Fixed
