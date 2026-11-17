@@ -11,9 +11,9 @@ from .const import DOMAIN
 from .coordinator import OregonIDTW21RCoordinator
 
 HISTORY_BUTTONS = (
-    (0x00, "Internal history", None),
-    (0x10, "Kanal 1 history", 1),
-    (0x11, "Kanal 2 history", 2),
+    (0x00, None),
+    (0x10, 1),
+    (0x11, 2),
 )
 
 
@@ -21,8 +21,8 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Set up history request buttons."""
     coordinator: OregonIDTW21RCoordinator = entry.runtime_data
     async_add_entities(
-        OregonHistoryButton(coordinator, entry.entry_id, channel, name, outdoor)
-        for channel, name, outdoor in HISTORY_BUTTONS
+        OregonHistoryButton(coordinator, entry.entry_id, channel, outdoor)
+        for channel, outdoor in HISTORY_BUTTONS
     )
 
 
@@ -33,7 +33,13 @@ class OregonHistoryButton(CoordinatorEntity[OregonIDTW21RCoordinator], ButtonEnt
     _attr_icon = "mdi:history"
     _attr_name = "Historie auslesen – Drücken"
 
-    def __init__(self, coordinator, entry_id, channel, description, outdoor_channel):
+    def __init__(
+        self,
+        coordinator: OregonIDTW21RCoordinator,
+        entry_id: str,
+        channel: int,
+        outdoor_channel: int | None,
+    ) -> None:
         super().__init__(coordinator)
         self._channel = channel
         self._attr_unique_id = f"{entry_id}_history_{channel:02x}"
@@ -47,7 +53,9 @@ class OregonHistoryButton(CoordinatorEntity[OregonIDTW21RCoordinator], ButtonEnt
             )
         else:
             self._attr_device_info = DeviceInfo(
-                identifiers={(DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")},
+                identifiers={
+                    (DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")
+                },
                 name=f"Kanal {outdoor_channel}",
                 manufacturer="Oregon Scientific",
                 via_device=(DOMAIN, coordinator.address),
