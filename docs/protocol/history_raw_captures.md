@@ -294,3 +294,10 @@ The integration subsequently reported at `2026-11-18 00:20:04.751+01:00`: **170 
 - `2026-11-18 00:19:56.469+01:00` — `10 9c ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
 - `2026-11-18 00:19:56.590+01:00` — `10 a1 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
 - `2026-11-18 00:19:56.749+01:00` — `10 a6 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+
+
+## Channel 3 history capture — 2026-11-18 00:25 (+01:00)
+
+The channel 3 history request was sent at 00:25:47.159+01:00 using command `81 12 FF`. The station acknowledged with `81 12` and returned 34 raw notifications on handle `0x0013`; all notifications ended in `0x4A`. The assembled response contained 170 indexed samples, 73 of which contained temperature data. Humidity was unavailable throughout the capture (`0x7F` sentinel); subsequent temperature/humidity pairs used `0xFF 0x7F` for missing temperature and humidity. The comparison with Home Assistant showed close agreement between Oregon temperatures and HA hourly means for the available period. Index 1 mapped provisionally to the current local hour; index 2 to the preceding hour. This supports the observed ordering for this capture but does not establish the mapping for all station configurations or clock states.
+
+The individual raw packet byte strings from this channel 3 capture are not reproduced in this section; the description above records the observed request, notification count, index range and missing-value behavior.
