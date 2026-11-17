@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
