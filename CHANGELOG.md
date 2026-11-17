@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.32
+
+### Fixed
+- Validate the 18-byte history packet length and channel, then decode the first 17 bytes without whitelisting the final byte. Its protocol meaning is unknown and observed values vary between captures.
+- Add regression coverage for all previously observed trailing values (`0x01`, `0x26`, `0x31`, `0x3D`, `0x48`) and an arbitrary unknown value (`0x99`); malformed packet lengths remain rejected.
+
 ## 0.2.31
 
 ### Fixed
