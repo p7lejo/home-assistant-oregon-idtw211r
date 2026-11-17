@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.32** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.33** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
@@ -43,13 +43,15 @@ The implementation is based on protocol information from the original Raspberry 
 
 ## Experimental history diagnostics
 
-Version 0.2.28 extends the diagnostic-only history reader to the indoor sensor and outdoor channels 1 and 2. After the first successful live measurement update, the integration sends one request per channel to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the indoor sensor, `81 10 FF` for outdoor channel 1 (the channel assignment is inferred from the command sequence) and `81 11 FF` for outdoor channel 2. Responses are collected from ATT value handle `0x0014` and logged separately. The channel mapping is based on the observed mobile-app BLE requests; `0x11` is outdoor channel 2 (not the indoor sensor).
+Hourly station history is read manually from the corresponding Home Assistant device. The base station has a **Historie auslesen – Drücken** button for the internal sensor; **Kanal 1** and **Kanal 2** each have their own button. The command addresses only the selected channel, matching the Oregon mobile app's one-channel-at-a-time workflow. Channel 3 is not currently supported by the observed history protocol and has no history button.
 
-The observed history notification is 18 bytes long: a channel identifier, a start index, five hourly samples and one trailing byte of unknown meaning. The decoder validates the 18-byte packet length and channel identifier, then decodes only the first 17 bytes; the trailing byte is ignored. This avoids rejecting otherwise valid history data when that byte changes. Captures have shown `0x01`, `0x26`, `0x31`, `0x3D` and `0x48`, but the protocol meaning of the final byte has not been established. Each sample contains a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. The missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
+The BLE request is sent to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the internal sensor, `81 10 FF` for outdoor channel 1 and `81 11 FF` for outdoor channel 2. The integration allows up to 45 seconds for the response because the mobile app's history exchange can take several tens of seconds. Live measurements continue to be updated independently.
 
-The decoded history is now retained as structured data and included in the integration's **Download diagnostics** output. Each channel contains indexed samples, decoded temperature and humidity, independent validity flags, and the corresponding live sensor entity/statistic ID candidates. Channels that did not respond are distinguished from channels that returned missing-value markers. The request is attempted once per coordinator lifetime; failure does not affect live measurements.
+Decoded station samples remain diagnostic data; they are not imported into Home Assistant history or statistics. The debug log contains a side-by-side comparison of station values and Home Assistant hourly **mean** statistics, including the difference for temperature and humidity. Missing station values or unavailable HA statistics are shown as `n/a`/—. HA statistics are looked up through the entity registry, not through fixed entity IDs. A comparison is possible only for hours for which HA has statistics; the measurement entities use `state_class: measurement`, so statistics are generated for new readings.
 
-Temperature and humidity entities now declare the `measurement` state class, allowing Home Assistant to create long-term statistics for new readings. Existing history values are not yet imported. The station clock is synchronized with the mobile app, and the user confirms that history is returned in reverse chronological order. Diagnostics therefore map index 1 to the start of the current local hour and each subsequent index to one hour earlier. Both local timestamps and UTC statistic start times are included. This mapping must still be checked against the station/app history on the real device before comparison or statistic writes are enabled.
+The observed history notification is 18 bytes long: a channel identifier, a start index, five hourly samples and one trailing byte of unknown meaning. The decoder validates the 18-byte packet length and channel identifier, then decodes only the first 17 bytes; the trailing byte is ignored. Each sample contains a signed little-endian 16-bit temperature in tenths of a degree Celsius and one humidity byte. Missing-value markers are `0x7FFF` for temperature and `0x7F` for humidity.
+
+**Timestamp mapping remains provisional.** The current comparison assumes newest-first ordering and maps index 1 to the start of the current local hour; each subsequent index is one hour earlier. The arithmetic is performed in UTC to handle daylight-saving transitions. The mapping must be checked against the mobile app's displayed timestamps before interpreting differences as definitive. The comparison is read-only and never modifies HA statistics.
 
 ## Important: IDTW211R vs IDTW213R
 

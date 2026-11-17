@@ -11,9 +11,9 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 from .coordinator import HISTORY_CHANNELS, OregonIDTW21RCoordinator
 
-# The station clock is synchronized and the user confirms newest-first ordering.
-# Index 1 is provisionally mapped to the current local hour. Verify against the
-# station/app history before enabling any statistics comparison or writes.
+# History is assumed newest-first; index 1 is provisionally mapped to the
+# current local hour. Verify against the station/app history before relying on
+# the comparison. The comparison is read-only.
 HISTORY_ENTITY_KEYS = {
     0x00: ("temperature_indoor", "humidity_indoor"),
     0x10: ("temperature_outdoor", "humidity_outdoor_1"),
@@ -104,12 +104,12 @@ async def async_get_config_entry_diagnostics(
             "timestamp_mapping": "newest_first_index_1_is_current_hour",
             "timestamp_mapping_verified": False,
             "timestamp_mapping_note": (
-                "The station clock is synchronized and history is newest first. "
-                "Index 1 is provisionally anchored to the start of the current "
+                "History is assumed to be newest first. Index 1 is provisionally "
+                "anchored to the start of the current "
                 "local hour; each subsequent index is one hour earlier. The "
                 "first timestamps still need verification against the station/"
-                "app history. Statistics comparison, import and overwrite are "
-                "not enabled."
+                "app history. The Home Assistant comparison uses hourly means "
+                "and is read-only; no statistics are imported or overwritten."
             ),
             "timestamp_reference": (
                 coordinator.history_reference_time.isoformat()

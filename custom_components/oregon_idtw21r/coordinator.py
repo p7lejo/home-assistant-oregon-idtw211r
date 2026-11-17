@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from bleak import BleakClient
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
 from homeassistant.components import bluetooth
+from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -210,7 +212,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.address = entry.data["address"]
         self.device_name = entry.data.get("name", "Oregon Scientific IDTW21xR")
         self.hass = hass
-        self._history_attempted = False
+        self.entry_id = entry.entry_id
+        self._pending_history_channel: int | None = None
+        self._history_request_lock = asyncio.Lock()
         self.history_samples: dict[int, dict[int, tuple[float | None, int | None]]] = {
             channel: {} for channel, _ in HISTORY_CHANNELS
         }
@@ -226,6 +230,122 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=UPDATE_INTERVAL,
             update_method=self._async_update_data,
         )
+
+    async def async_read_history(self, channel: int) -> None:
+        """Request one channel's history and log its comparison with HA statistics."""
+        if channel not in {item[0] for item in HISTORY_CHANNELS}:
+            raise ValueError(f"Unsupported history channel: 0x{channel:02X}")
+        async with self._history_request_lock:
+            self._pending_history_channel = channel
+            self.history_samples[channel].clear()
+            self.history_status[channel] = "queued"
+            _LOGGER.debug(
+                "%s: manual history read queued for channel 0x%02X",
+                self.device_name,
+                channel,
+            )
+            for _attempt in range(2):
+                if self._pending_history_channel is None:
+                    break
+                await self.async_request_refresh()
+            if self._pending_history_channel is not None:
+                self._pending_history_channel = None
+                self.history_status[channel] = "request_not_started"
+                _LOGGER.warning(
+                    "%s: history request for channel 0x%02X was not started; "
+                    "the station may be unreachable or a refresh failed",
+                    self.device_name,
+                    channel,
+                )
+
+    async def _async_log_history_comparison(self, channel: int) -> None:
+        """Compare decoded hourly samples with Home Assistant hourly means."""
+        samples = self.history_samples[channel]
+        if not samples or self.history_reference_time is None:
+            return
+        entity_keys = {
+            0x00: ("temperature_indoor", "humidity_indoor"),
+            0x10: ("temperature_outdoor", "humidity_outdoor_1"),
+            0x11: ("temperature_outdoor_2", "humidity_outdoor_2"),
+        }
+        channel_name = dict(HISTORY_CHANNELS)[channel]
+        temperature_key, humidity_key = entity_keys[channel]
+        registry = er.async_get(self.hass)
+        entity_ids = {
+            "temperature": registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{self.entry_id}_{temperature_key}"
+            ),
+            "humidity": registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{self.entry_id}_{humidity_key}"
+            ),
+        }
+        statistic_ids = {value for value in entity_ids.values() if value}
+        reference_utc = dt_util.as_utc(self.history_reference_time).replace(
+            minute=0, second=0, microsecond=0
+        )
+        start_time = reference_utc - timedelta(hours=max(samples) - 1)
+        end_time = reference_utc + timedelta(hours=1)
+        statistics: dict[str, list[dict[str, Any]]] = {}
+        if statistic_ids:
+            try:
+                statistics = await self.hass.async_add_executor_job(
+                    statistics_during_period,
+                    self.hass,
+                    start_time,
+                    end_time,
+                    statistic_ids,
+                    "hour",
+                    None,
+                    {"mean"},
+                )
+            except Exception:
+                _LOGGER.exception(
+                    "%s: unable to retrieve Home Assistant hourly statistics "
+                    "for %s history",
+                    self.device_name,
+                    channel_name,
+                )
+        indexed_means: dict[str, dict[datetime, float | None]] = {}
+        for metric, entity_id in entity_ids.items():
+            indexed_means[metric] = (
+                {}
+                if entity_id is None
+                else {
+                    datetime.fromtimestamp(row["start"], tz=dt_util.UTC).replace(
+                        minute=0, second=0, microsecond=0
+                    ): row.get("mean")
+                    for row in statistics.get(entity_id, [])
+                }
+            )
+        lines = [
+            f"{self.device_name}: history comparison – {channel_name}",
+            "Mapping provisional: index 1 = current local hour; HA value = hourly mean",
+            "Index | Local time       | Temp Oregon | Temp HA | Δ °C | RH Oregon | RH HA | Δ %",
+        ]
+        for index, (temperature, humidity) in sorted(samples.items()):
+            sample_time = reference_utc - timedelta(hours=index - 1)
+            local_label = dt_util.as_local(sample_time).strftime("%d.%m.%Y %H:%M")
+            ha_temperature = indexed_means["temperature"].get(sample_time)
+            ha_humidity = indexed_means["humidity"].get(sample_time)
+            temp_delta = (
+                f"{temperature - ha_temperature:+.1f}"
+                if temperature is not None and ha_temperature is not None
+                else "—"
+            )
+            humidity_delta = (
+                f"{humidity - ha_humidity:+.0f}"
+                if humidity is not None and ha_humidity is not None
+                else "—"
+            )
+            lines.append(
+                f"{index:>5} | {local_label:<16} | "
+                f"{_format_temperature(temperature):>11} | "
+                f"{_format_temperature(ha_temperature):>7} | {temp_delta:>5} | "
+                f"{str(humidity) if humidity is not None else 'n/a':>9} | "
+                f"{str(round(ha_humidity)) if ha_humidity is not None else 'n/a':>5} | "
+                f"{humidity_delta:>4}"
+            )
+        _LOGGER.debug("%s", "\n".join(lines))
 
     async def _async_update_data(self) -> dict[str, Any]:
         ble_device = bluetooth.async_ble_device_from_address(
@@ -489,138 +609,101 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if raw_battery:
                     result["battery"] = raw_battery[0]
 
-            if not self._history_attempted:
-                # History is diagnostic-only for now. Read the indoor sensor
-                # and outdoor channels 1 and 2 independently. A missing or
-                # unsupported channel must not interfere with live measurements.
-                self._history_attempted = True
+            requested_channel = self._pending_history_channel
+            if requested_channel is not None:
                 history_command_char = _find_characteristic(
                     services, HISTORY_COMMAND_CHAR_HANDLE
                 )
+                channel_name = dict(HISTORY_CHANNELS)[requested_channel]
                 if history_command_char is None or "write" not in set(
                     history_command_char.properties
                 ):
-                    for channel, _ in HISTORY_CHANNELS:
-                        self.history_status[channel] = "unsupported"
+                    self.history_status[requested_channel] = "unsupported"
                     _LOGGER.debug(
                         "%s: history command characteristic 0x%04x is not writable",
                         self.device_name,
                         HISTORY_COMMAND_CHAR_HANDLE,
                     )
                 else:
-                    # The station clock is synchronized with the mobile app. The
-                    # user confirms the history is newest-first, with index 1 at
-                    # the current station hour. Capture one stable reference for
-                    # all channels so a multi-channel read cannot shift timestamps.
-                    self.history_reference_time = dt_util.now()
-                    for channel, channel_name in HISTORY_CHANNELS:
-                        command = bytes(
-                            (HISTORY_COMMAND_PREFIX, channel, HISTORY_COMMAND_SUFFIX)
+                    command = bytes(
+                        (
+                            HISTORY_COMMAND_PREFIX,
+                            requested_channel,
+                            HISTORY_COMMAND_SUFFIX,
                         )
-                        channel_samples = history_samples[channel]
-                        self.history_status[channel] = "requested"
-                        history_event.clear()
-                        try:
+                    )
+                    channel_samples = history_samples[requested_channel]
+                    self.history_status[requested_channel] = "requested"
+                    history_event.clear()
+                    try:
+                        _LOGGER.debug(
+                            "%s: requesting %s hourly history with command %s",
+                            self.device_name,
+                            channel_name,
+                            command.hex(" "),
+                        )
+                        self.history_reference_time = dt_util.now().replace(
+                            minute=0, second=0, microsecond=0
+                        )
+                        await client.write_gatt_char(
+                            history_command_char, command, response=True
+                        )
+                        loop = asyncio.get_running_loop()
+                        history_deadline = loop.time() + 45
+                        while loop.time() < history_deadline:
+                            try:
+                                await asyncio.wait_for(
+                                    history_event.wait(),
+                                    timeout=min(
+                                        8.0, history_deadline - loop.time()
+                                    ),
+                                )
+                            except TimeoutError:
+                                break
+                            history_event.clear()
+
+                        if channel_samples:
+                            indices = sorted(channel_samples)
+                            valid_count = sum(
+                                temperature is not None or humidity is not None
+                                for temperature, humidity in channel_samples.values()
+                            )
+                            self.history_status[requested_channel] = "received"
                             _LOGGER.debug(
-                                "%s: requesting %s hourly history with command %s",
+                                "%s: %s history received: %d indexed samples "
+                                "(%d containing data), indices %d..%d",
                                 self.device_name,
                                 channel_name,
-                                command.hex(" "),
+                                len(indices),
+                                valid_count,
+                                min(indices),
+                                max(indices),
                             )
-                            await client.write_gatt_char(
-                                history_command_char, command, response=True
+                            await self._async_log_history_comparison(
+                                requested_channel
                             )
-
-                            # Each channel returns a burst of indexed notifications.
-                            # Stop after two quiet seconds, with a 15-second hard
-                            # limit for a slow or unsupported channel.
-                            loop = asyncio.get_running_loop()
-                            history_deadline = loop.time() + 15
-                            while loop.time() < history_deadline:
-                                remaining = history_deadline - loop.time()
-                                try:
-                                    await asyncio.wait_for(
-                                        history_event.wait(),
-                                        timeout=min(2.0, remaining),
-                                    )
-                                except TimeoutError:
-                                    break
-                                history_event.clear()
-
-                            if channel_samples:
-                                history_indices = sorted(channel_samples)
-                                ordered_samples = [
-                                    channel_samples[index] for index in history_indices
-                                ]
-                                temperatures = [
-                                    sample[0] for sample in ordered_samples
-                                ]
-                                humidities = [
-                                    sample[1] for sample in ordered_samples
-                                ]
-                                valid_count = sum(
-                                    temperature is not None or humidity is not None
-                                    for temperature, humidity in ordered_samples
-                                )
-                                _LOGGER.debug(
-                                    "%s: %s history received: %d indexed samples "
-                                    "(%d containing data), indices %d..%d",
-                                    self.device_name,
-                                    channel_name,
-                                    len(ordered_samples),
-                                    valid_count,
-                                    min(history_indices),
-                                    max(history_indices),
-                                )
-                                for block_start in range(0, len(ordered_samples), 24):
-                                    block_end = min(
-                                        block_start + 24, len(ordered_samples)
-                                    )
-                                    block_number = block_start // 24 + 1
-                                    _LOGGER.debug(
-                                        "%s: %s history block %d (indices %d..%d) "
-                                        "temperature °C: %s",
-                                        self.device_name,
-                                        channel_name,
-                                        block_number,
-                                        history_indices[block_start],
-                                        history_indices[block_end - 1],
-                                        temperatures[block_start:block_end],
-                                    )
-                                    _LOGGER.debug(
-                                        "%s: %s history block %d (indices %d..%d) "
-                                        "humidity %%RH: %s",
-                                        self.device_name,
-                                        channel_name,
-                                        block_number,
-                                        history_indices[block_start],
-                                        history_indices[block_end - 1],
-                                        humidities[block_start:block_end],
-                                    )
-                            else:
-                                self.history_status[channel] = "no_notifications"
-                                _LOGGER.debug(
-                                    "%s: no %s history notifications received",
-                                    self.device_name,
-                                    channel_name,
-                                )
-                        except (
-                            BleakError,
-                            OSError,
-                            ValueError,
-                            TimeoutError,
-                        ) as err:
-                            self.history_status[channel] = "request_failed"
+                        else:
+                            self.history_status[requested_channel] = (
+                                "no_notifications"
+                            )
                             _LOGGER.debug(
-                                "%s: %s history request failed; live measurements "
-                                "remain available: %s",
+                                "%s: no %s history notifications received",
                                 self.device_name,
                                 channel_name,
-                                err,
-                                exc_info=True,
                             )
-
+                    except (BleakError, OSError, ValueError, TimeoutError) as err:
+                        self.history_status[requested_channel] = "request_failed"
+                        _LOGGER.debug(
+                            "%s: %s history request failed; live measurements "
+                            "remain available: %s",
+                            self.device_name,
+                            channel_name,
+                            err,
+                            exc_info=True,
+                        )
                 self.history_captured_at = dt_util.utcnow()
+                if self._pending_history_channel == requested_channel:
+                    self._pending_history_channel = None
 
             _LOGGER.info(
                 "%s: measurements: indoor %s °C / %s %%RH; "
