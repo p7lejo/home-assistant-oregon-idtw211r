@@ -7,6 +7,7 @@
 - Add automated config-flow tests for manual setup, address normalization and duplicate-device rejection.
 - Add three additional quality workflows for Python/Home Assistant compatibility, history/recorder tests and coverage/type checking; these workflows are present but explicitly disabled for now.
 - Document the active and disabled CI quality checks.
+- Configure HACS validation to skip only the repository metadata checks that require owner decisions or assets (license, topics and brands).
 
 
 ## 0.2.33
