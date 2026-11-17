@@ -142,6 +142,7 @@ class HistoryDecoderTests(unittest.TestCase):
             "00 24 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
         )
         self.assertIsNone(decode_history_packet(packet[:-1]))
+        self.assertIsNone(decode_history_packet(packet + b"\\x00"))
 
 
 if __name__ == "__main__":
