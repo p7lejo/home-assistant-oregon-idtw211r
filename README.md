@@ -43,7 +43,7 @@ The implementation is based on protocol information from the original Raspberry 
 
 ## Experimental history diagnostics
 
-Hourly station history is read manually from the corresponding Home Assistant device. The base station has a **Historie auslesen – Drücken** button for the internal sensor; **Kanal 1**, **Kanal 2** and **Kanal 3** each have their own button. The command addresses only the selected channel, matching the Oregon mobile app's one-channel-at-a-time workflow. Channel 3 history decodes both temperature and humidity fields. The currently connected channel 3 sensor does not supply humidity, so its humidity samples are expected to be marked unavailable; the decoder retains support for a future humidity-capable sensor.
+Hourly station history is read manually from the corresponding Home Assistant device. The base station has a **Historie auslesen** button for the internal sensor; **Kanal 1**, **Kanal 2** and **Kanal 3** each have their own button. The command addresses only the selected channel, matching the Oregon mobile app's one-channel-at-a-time workflow. Channel 3 history decodes both temperature and humidity fields. The currently connected channel 3 sensor does not supply humidity, so its humidity samples are expected to be marked unavailable; the decoder retains support for a future humidity-capable sensor.
 
 The BLE request is sent to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the internal sensor, `81 10 FF` for outdoor channel 1, `81 11 FF` for outdoor channel 2 and `81 12 FF` for outdoor channel 3. The integration allows up to 45 seconds for the response because the mobile app's history exchange can take several tens of seconds. Live measurements continue to be updated independently.
 
