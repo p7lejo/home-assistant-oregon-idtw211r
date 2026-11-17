@@ -104,8 +104,8 @@ async def async_get_config_entry_diagnostics(
             "timestamp_mapping": "newest_first_index_1_is_current_hour",
             "timestamp_mapping_verified": False,
             "timestamp_mapping_note": (
-                "The station clock is synchronized and history is newest first. "
-                "Index 1 is provisionally anchored to the start of the current "
+                "History is assumed to be newest first. Index 1 is provisionally "
+                "anchored to the start of the current "
                 "local hour; each subsequent index is one hour earlier. The "
                 "first timestamps still need verification against the station/"
                 "app history. The Home Assistant comparison uses hourly means "
