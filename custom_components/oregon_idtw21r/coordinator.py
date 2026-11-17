@@ -11,7 +11,11 @@ from bleak import BleakClient
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
 from homeassistant.components import bluetooth
-from homeassistant.components.recorder.statistics import statistics_during_period
+from homeassistant.components.recorder.statistics import (
+    async_import_statistics,
+    get_metadata,
+    statistics_during_period,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -239,8 +243,10 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_method=self._async_update_data,
         )
 
-    async def async_read_history(self, channel: int) -> None:
-        """Request one channel's history and log its comparison with HA statistics."""
+    async def async_read_history(
+        self, channel: int, import_mode: str = "read"
+    ) -> None:
+        """Request one channel's history, optionally importing hourly means."""
         if channel not in {item[0] for item in HISTORY_CHANNELS}:
             raise ValueError(f"Unsupported history channel: 0x{channel:02X}")
         async with self._history_request_lock:
@@ -359,6 +365,116 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 f"{humidity_delta:>4}"
             )
         _LOGGER.debug("%s", "\n".join(lines))
+
+    async def _async_import_history(self, channel: int, mode: str) -> None:
+        """Import Oregon hourly values into existing HA long-term mean statistics."""
+        entity_keys = {
+            0x00: ("temperature_indoor", "humidity_indoor"),
+            0x10: ("temperature_outdoor", "humidity_outdoor_1"),
+            0x11: ("temperature_outdoor_2", "humidity_outdoor_2"),
+            0x12: ("temperature_outdoor_3", "humidity_outdoor_3"),
+        }
+        if mode not in {"fill", "overwrite"} or self.history_reference_time is None:
+            return
+
+        registry = er.async_get(self.hass)
+        reference_utc = dt_util.as_utc(self.history_reference_time).replace(
+            minute=0, second=0, microsecond=0
+        )
+        samples = self.history_samples[channel]
+        imported = 0
+        skipped = 0
+        for metric_index, key in enumerate(entity_keys[channel]):
+            entity_id = registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{self.entry_id}_{key}"
+            )
+            if entity_id is None:
+                continue
+            valid_samples = {
+                reference_utc - timedelta(hours=index - 1): pair[metric_index]
+                for index, pair in samples.items()
+                if pair[metric_index] is not None
+            }
+            if not valid_samples:
+                continue
+
+            start_time = min(valid_samples)
+            end_time = max(valid_samples) + timedelta(hours=1)
+            statistic_ids = {entity_id}
+            try:
+                metadata_result, existing_result = await asyncio.gather(
+                    self.hass.async_add_executor_job(
+                        get_metadata, self.hass, statistic_ids=statistic_ids
+                    ),
+                    self.hass.async_add_executor_job(
+                        statistics_during_period,
+                        self.hass,
+                        start_time,
+                        end_time,
+                        statistic_ids,
+                        "hour",
+                        None,
+                        {"last_reset", "max", "mean", "min", "state", "sum"},
+                    ),
+                )
+            except Exception:
+                _LOGGER.exception(
+                    "%s: unable to read long-term statistics for %s",
+                    self.device_name, entity_id
+                )
+                continue
+
+            metadata_entry = metadata_result.get(entity_id)
+            if metadata_entry is None:
+                _LOGGER.warning(
+                    "%s: no long-term statistics metadata found for %s",
+                    self.device_name, entity_id
+                )
+                continue
+
+            metadata = metadata_entry[1]
+            existing_rows = {
+                datetime.fromtimestamp(row["start"], tz=dt_util.UTC): row
+                for row in existing_result.get(entity_id, [])
+            }
+            import_rows = []
+            for start, value in sorted(valid_samples.items()):
+                existing = existing_rows.get(start)
+                if mode == "fill" and existing is not None and existing.get("mean") is not None:
+                    skipped += 1
+                    continue
+
+                row = {"start": start, "mean": value}
+                if existing is not None:
+                    # Recorder's import API updates every StatisticData field.
+                    # Carry forward all fields except mean to preserve them.
+                    for field in ("min", "max", "state", "sum"):
+                        row[field] = existing.get(field)
+                    last_reset = existing.get("last_reset")
+                    row["last_reset"] = (
+                        dt_util.utc_from_timestamp(last_reset)
+                        if last_reset is not None
+                        else None
+                    )
+                import_rows.append(row)
+
+            if import_rows:
+                try:
+                    async_import_statistics(self.hass, metadata, import_rows)
+                    imported += len(import_rows)
+                except Exception:
+                    _LOGGER.exception(
+                        "%s: failed importing long-term means for %s",
+                        self.device_name, entity_id
+                    )
+
+        _LOGGER.info(
+            "%s: Oregon history %s import for channel 0x%02X completed: "
+            "%d mean values written, %d existing values skipped",
+            self.device_name, mode, channel, imported, skipped
+        )
+
+
 
     async def _async_update_data(self) -> dict[str, Any]:
         ble_device = bluetooth.async_ble_device_from_address(
@@ -695,6 +811,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             await self._async_log_history_comparison(
                                 requested_channel
                             )
+                            if import_mode in {"fill", "overwrite"}:
+                                await self._async_import_history(requested_channel, import_mode)
                         else:
                             self.history_status[requested_channel] = (
                                 "no_notifications"
