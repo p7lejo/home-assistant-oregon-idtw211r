@@ -32,7 +32,7 @@ class OregonHistoryButton(CoordinatorEntity[OregonIDTW21RCoordinator], ButtonEnt
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:history"
-    _attr_name = "Historie auslesen – Drücken"
+    _attr_name = "Historie auslesen"
 
     def __init__(
         self,
