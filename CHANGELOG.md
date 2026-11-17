@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.34
+
+### Added
+- Add separate GitHub Actions for Hassfest, HACS validation, Ruff linting, Home Assistant config-flow tests and BLE protocol regression tests.
+- Add automated config-flow tests for manual setup, address normalization and duplicate-device rejection.
+- Add three additional quality workflows for Python/Home Assistant compatibility, history/recorder tests and coverage/type checking; these workflows are present but explicitly disabled for now.
+- Document the active and disabled CI quality checks.
+
+
 ## 0.2.33
 
 ### Added

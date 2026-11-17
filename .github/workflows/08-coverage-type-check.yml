@@ -1,0 +1,26 @@
+name: Coverage and Type Checking (disabled)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    if: false # Disabled until coverage scope and typing policy are agreed.
+    name: Coverage and Pyright
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade -r requirements_test.txt pyright
+      - name: Run tests with coverage
+        run: pytest --cov=custom_components/oregon_idtw21r --cov-report=term-missing --cov-report=xml tests
+      - name: Run Pyright
+        run: pyright custom_components/oregon_idtw21r

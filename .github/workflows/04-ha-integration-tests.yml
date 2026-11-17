@@ -1,0 +1,29 @@
+name: Home Assistant Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  config-flow:
+    name: Config flow tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+      - name: Install test dependencies
+        run: python -m pip install --upgrade -r requirements_test.txt
+      - name: Test Home Assistant config flow
+        run: pytest -q tests/test_config_flow.py

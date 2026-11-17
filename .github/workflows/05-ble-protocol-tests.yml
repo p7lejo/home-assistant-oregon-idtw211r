@@ -1,0 +1,27 @@
+name: BLE Protocol Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    name: BLE decoder regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile integration and tests
+        run: python -m compileall -q custom_components tests
+      - name: Run captured BLE protocol regressions
+        run: python -m unittest discover -s tests -p "test_history_decoder.py" -v

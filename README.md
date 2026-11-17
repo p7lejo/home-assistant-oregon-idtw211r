@@ -138,3 +138,22 @@ Useful log messages include Bluetooth reachability, GATT connection attempts, th
 This is an independent community integration and is not affiliated with Oregon Scientific.
 
 Further IDTW21xR models and additional channels will be added only after validation against real devices.
+
+
+## Continuous integration and quality checks
+
+The following GitHub Actions run automatically for pull requests targeting `main` and for pushes to `main`:
+
+- **Hassfest** — validates the Home Assistant integration structure and metadata.
+- **HACS Validation** — checks the repository as a HACS integration.
+- **Ruff** — checks Python code for common lint errors.
+- **Home Assistant Integration Tests** — exercises the manual config flow, address normalization and duplicate-device handling.
+- **BLE Protocol Tests** — compiles the integration and runs the captured history-packet decoder regression tests.
+
+The following workflows are intentionally disabled for now. They are retained as separate workflows and can be enabled when their test scope and acceptance criteria are ready:
+
+- **Python and Home Assistant Compatibility** — Python-version matrix.
+- **History and Recorder Tests** — history timestamp mapping and Home Assistant recorder/statistics behavior.
+- **Coverage and Type Checking** — coverage reporting and Pyright.
+
+The disabled workflows are manual-dispatch placeholders whose jobs are guarded by `if: false`; they do not run until that guard is removed. The live-device BLE exchange and comparison with the Oregon mobile app still require validation on physical hardware and are not simulated by GitHub-hosted runners.
