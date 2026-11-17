@@ -145,7 +145,7 @@ Further IDTW21xR models and additional channels will be added only after validat
 The following GitHub Actions run automatically for pull requests targeting `main` and for pushes to `main`:
 
 - **Hassfest** — validates the Home Assistant integration structure and metadata.
-- **HACS Validation** — checks the repository as a HACS integration.
+- **HACS Validation** — checks the repository as a HACS integration. The license, repository topics and brand-asset checks are temporarily ignored: the repository owner must choose the license, and topics/brand assets are not yet configured.
 - **Ruff** — checks Python code for common lint errors.
 - **Home Assistant Integration Tests** — exercises the manual config flow, address normalization and duplicate-device handling.
 - **BLE Protocol Tests** — compiles the integration and runs the captured history-packet decoder regression tests.
