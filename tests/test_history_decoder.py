@@ -74,10 +74,42 @@ class HistoryDecoderTests(unittest.TestCase):
         base = bytearray.fromhex(
             "00 01 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
         )
-        for terminator in (0x01, 0x26, 0x31):
+        for terminator in (0x01, 0x26, 0x31, 0x3D):
             with self.subTest(terminator=terminator):
                 packet = bytes(base[:-1] + bytes([terminator]))
                 self.assertIsNotNone(decode_history_packet(packet))
+
+
+    def test_captured_0x3d_packets_decode_for_all_channels(self):
+        packets = [
+            (
+                "10 01 76 00 40 74 00 41 73 00 43 72 00 46 6e 00 49 3d",
+                0x10,
+                1,
+                [(11.8, 64), (11.6, 65), (11.5, 67), (11.4, 70), (11.0, 73)],
+            ),
+            (
+                "11 01 6c 00 42 62 00 43 61 00 44 61 00 47 5f 00 4a 3d",
+                0x11,
+                1,
+                [(10.8, 66), (9.8, 67), (9.7, 68), (9.7, 71), (9.5, 74)],
+            ),
+            (
+                "00 01 d2 00 31 cf 00 30 d0 00 32 cf 00 32 cc 00 32 3d",
+                0x00,
+                1,
+                [(21.0, 49), (20.7, 48), (20.8, 50), (20.7, 50), (20.4, 50)],
+            ),
+        ]
+
+        for raw, expected_channel, expected_index, expected_samples in packets:
+            with self.subTest(channel=expected_channel):
+                decoded = decode_history_packet(bytes.fromhex(raw))
+                self.assertIsNotNone(decoded)
+                channel, start_index, samples = decoded
+                self.assertEqual(channel, expected_channel)
+                self.assertEqual(start_index, expected_index)
+                self.assertEqual(samples, expected_samples)
 
     def test_unknown_terminator_is_rejected(self):
         packet = bytearray.fromhex(
