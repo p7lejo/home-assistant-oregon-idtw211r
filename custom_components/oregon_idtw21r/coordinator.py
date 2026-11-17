@@ -618,7 +618,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     services, HISTORY_COMMAND_CHAR_HANDLE
                 )
                 channel_name = dict(HISTORY_CHANNELS)[requested_channel]
-                if history_command_char is None or "write" not in set(history_command_char.properties):
+                if history_command_char is None or "write" not in set(
+                    history_command_char.properties
+                ):
                     self.history_status[requested_channel] = "unsupported"
                     _LOGGER.debug(
                         "%s: history command characteristic 0x%04x is not writable",
@@ -654,12 +656,15 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         while loop.time() < history_deadline:
                             try:
                                 await asyncio.wait_for(
-                                history_event.wait(),
-                                timeout=min(4.0, history_deadline - loop.time()),
-                            )
+                                    history_event.wait(),
+                                    timeout=min(
+                                        4.0, history_deadline - loop.time()
+                                    ),
+                                )
                             except TimeoutError:
                                 break
                             history_event.clear()
+
                         if channel_samples:
                             indices = sorted(channel_samples)
                             valid_count = sum(
@@ -677,14 +682,18 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 min(indices),
                                 max(indices),
                             )
-                            await self._async_log_history_comparison(requested_channel)
+                            await self._async_log_history_comparison(
+                                requested_channel
+                            )
                         else:
-                            self.history_status[requested_channel] = "no_notifications"
+                            self.history_status[requested_channel] = (
+                                "no_notifications"
+                            )
                             _LOGGER.debug(
-                            "%s: no %s history notifications received",
-                            self.device_name,
-                            channel_name,
-                        )
+                                "%s: no %s history notifications received",
+                                self.device_name,
+                                channel_name,
+                            )
                     except (BleakError, OSError, ValueError, TimeoutError) as err:
                         self.history_status[requested_channel] = "request_failed"
                         _LOGGER.debug(
