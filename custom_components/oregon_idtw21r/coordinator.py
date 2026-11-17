@@ -239,9 +239,6 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._pending_history_channel = channel
             self.history_samples[channel].clear()
             self.history_status[channel] = "queued"
-            self.history_reference_time = dt_util.now().replace(
-                minute=0, second=0, microsecond=0
-            )
             _LOGGER.debug(
                 "%s: manual history read queued for channel 0x%02X",
                 self.device_name,
@@ -658,7 +655,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 await asyncio.wait_for(
                                     history_event.wait(),
                                     timeout=min(
-                                        4.0, history_deadline - loop.time()
+                                        8.0, history_deadline - loop.time()
                                     ),
                                 )
                             except TimeoutError:
