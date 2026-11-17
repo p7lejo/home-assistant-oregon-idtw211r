@@ -6,7 +6,8 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "bluetooth_adapters"
+    "bluetooth_adapters",
+    "recorder"
   ],
   "documentation": "https://github.com/p7lejo/home-assistant-oregon-idtw211r",
   "issue_tracker": "https://github.com/p7lejo/home-assistant-oregon-idtw211r/issues",
