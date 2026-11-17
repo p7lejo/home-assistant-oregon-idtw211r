@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from functools import partial
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -407,7 +408,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             try:
                 metadata_result, existing_result = await asyncio.gather(
                     self.hass.async_add_executor_job(
-                        get_metadata, self.hass, statistic_ids=statistic_ids
+                        partial(get_metadata, self.hass, statistic_ids=statistic_ids)
                     ),
                     self.hass.async_add_executor_job(
                         statistics_during_period,
@@ -423,7 +424,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except Exception:
                 _LOGGER.exception(
                     "%s: unable to read long-term statistics for %s",
-                    self.device_name, entity_id
+                    self.device_name,
+                    entity_id,
                 )
                 continue
 
@@ -431,7 +433,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if metadata_entry is None:
                 _LOGGER.warning(
                     "%s: no long-term statistics metadata found for %s",
-                    self.device_name, entity_id
+                    self.device_name,
+                    entity_id,
                 )
                 continue
 
@@ -443,7 +446,11 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             import_rows = []
             for start, value in sorted(valid_samples.items()):
                 existing = existing_rows.get(start)
-                if mode == "fill" and existing is not None and existing.get("mean") is not None:
+                if (
+                    mode == "fill"
+                    and existing is not None
+                    and existing.get("mean") is not None
+                ):
                     skipped += 1
                     continue
 
@@ -468,13 +475,18 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except Exception:
                     _LOGGER.exception(
                         "%s: failed importing long-term means for %s",
-                        self.device_name, entity_id
+                        self.device_name,
+                        entity_id,
                     )
 
         _LOGGER.info(
             "%s: Oregon history %s import for channel 0x%02X completed: "
             "%d mean values written, %d existing values skipped",
-            self.device_name, mode, channel, imported, skipped
+            self.device_name,
+            mode,
+            channel,
+            imported,
+            skipped,
         )
 
 
