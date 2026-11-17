@@ -73,6 +73,11 @@ def _format_temperature(value: float | None) -> str:
     return f"{value:.1f}" if value is not None else "n/a"
 
 
+def _history_humidity_value(value: int) -> int | None:
+    """Decode humidity and preserve Oregon's missing-value marker."""
+    return None if value == 0x7F else value
+
+
 def _decode_history_packet(
     packet: bytes,
 ) -> tuple[int, int, list[tuple[float | None, int | None]]] | None:
@@ -101,13 +106,9 @@ def _decode_history_packet(
             None if raw_temperature == 0x7FFF else raw_temperature / 10
         )
         raw_humidity = payload[offset + 2]
-        # Outdoor channel 3's sensor has no humidity measurement. Ignore the
-        # protocol slot for this channel even if it contains a non-sentinel byte.
-        humidity = (
-            None
-            if payload[0] == 0x12 or raw_humidity == 0x7F
-            else raw_humidity
-        )
+        # Keep humidity decoding channel-independent: channel 3 may also be
+        # paired with a sensor that provides humidity in a future setup.
+        humidity = _history_humidity_value(raw_humidity)
         samples.append((temperature, humidity))
 
     return payload[0], payload[1], samples
@@ -274,9 +275,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             0x00: ("temperature_indoor", "humidity_indoor"),
             0x10: ("temperature_outdoor", "humidity_outdoor_1"),
             0x11: ("temperature_outdoor_2", "humidity_outdoor_2"),
-            # Outdoor channel 3 provides temperature only; its humidity is
-            # not available from the physical sensor.
-            0x12: ("temperature_outdoor_3", None),
+            0x12: ("temperature_outdoor_3", "humidity_outdoor_3"),
         }
         channel_name = dict(HISTORY_CHANNELS)[channel]
         temperature_key, humidity_key = entity_keys[channel]
