@@ -74,7 +74,7 @@ class HistoryDecoderTests(unittest.TestCase):
         base = bytearray.fromhex(
             "00 01 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
         )
-        for terminator in (0x01, 0x26, 0x31, 0x3D):
+        for terminator in (0x01, 0x26, 0x31, 0x3D, 0x48):
             with self.subTest(terminator=terminator):
                 packet = bytes(base[:-1] + bytes([terminator]))
                 self.assertIsNotNone(decode_history_packet(packet))
@@ -102,6 +102,25 @@ class HistoryDecoderTests(unittest.TestCase):
             ),
         ]
 
+        for raw, expected_channel, expected_index, expected_samples in packets:
+            with self.subTest(channel=expected_channel):
+                decoded = decode_history_packet(bytes.fromhex(raw))
+                self.assertIsNotNone(decoded)
+                channel, start_index, samples = decoded
+                self.assertEqual(channel, expected_channel)
+                self.assertEqual(start_index, expected_index)
+                self.assertEqual(samples, expected_samples)
+
+
+    def test_captured_0x48_packets_decode_for_all_channels(self):
+        packets = [
+            ("10 01 70 00 40 71 00 40 71 00 40 72 00 41 73 00 41 48", 0x10, 1,
+             [(11.2, 64), (11.3, 64), (11.3, 64), (11.4, 65), (11.5, 65)]),
+            ("11 01 ff 7f 7f 6b 00 3f 6c 00 3f 6e 00 3f 72 00 3f 48", 0x11, 1,
+             [(None, None), (10.7, 63), (10.8, 63), (11.0, 63), (11.4, 63)]),
+            ("00 01 ce 00 33 cf 00 33 d1 00 33 d4 00 34 d5 00 33 48", 0x00, 1,
+             [(20.6, 51), (20.7, 51), (20.9, 51), (21.2, 52), (21.3, 51)]),
+        ]
         for raw, expected_channel, expected_index, expected_samples in packets:
             with self.subTest(channel=expected_channel):
                 decoded = decode_history_packet(bytes.fromhex(raw))
