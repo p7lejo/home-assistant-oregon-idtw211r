@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.33
+
+### Added
+- Add per-device history buttons for the internal sensor and outdoor channels 1 and 2; each press requests only that channel, matching the mobile app's channel-by-channel workflow.
+- Compare decoded station history with Home Assistant hourly mean statistics in the debug log, including timestamps and temperature/humidity deltas.
+
+### Changed
+- Remove automatic multi-channel history requests during normal polling. Manual requests allow up to 45 seconds for the station response.
+- Keep history diagnostic-only and comparison read-only; the provisional index-to-time mapping is clearly logged.
+
 ## 0.2.32
 
 ### Fixed
