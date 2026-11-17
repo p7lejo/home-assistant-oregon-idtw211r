@@ -7,13 +7,12 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from homeassistant.components.recorder.statistics import statistics_during_period
-from homeassistant.helpers import entity_registry as er
-
 from bleak import BleakClient
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
 from homeassistant.components import bluetooth
+from homeassistant.components.recorder.statistics import statistics_during_period
+from homeassistant.helpers import entity_registry as er
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -293,16 +292,31 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if statistic_ids:
             try:
                 statistics = await self.hass.async_add_executor_job(
-                    statistics_during_period, self.hass, start_time, end_time,
-                    statistic_ids, "hour", None, {"mean"}
+                    statistics_during_period,
+                    self.hass,
+                    start_time,
+                    end_time,
+                    statistic_ids,
+                    "hour",
+                    None,
+                    {"mean"},
                 )
             except Exception:
-                _LOGGER.exception("%s: unable to retrieve Home Assistant hourly statistics for %s history", self.device_name, channel_name)
+                _LOGGER.exception(
+                    "%s: unable to retrieve Home Assistant hourly statistics "
+                    "for %s history",
+                    self.device_name,
+                    channel_name,
+                )
         indexed_means: dict[str, dict[datetime, float | None]] = {}
         for metric, entity_id in entity_ids.items():
             indexed_means[metric] = (
-                {} if entity_id is None else {
-                dt_util.as_utc(row["start"]).replace(minute=0, second=0, microsecond=0): row.get("mean")
+                {}
+                if entity_id is None
+                else {
+                    dt_util.as_utc(row["start"]).replace(
+                        minute=0, second=0, microsecond=0
+                    ): row.get("mean")
                     for row in statistics.get(entity_id, [])
                 }
             )
@@ -629,7 +643,12 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             channel_name,
                             command.hex(" "),
                         )
-                        await client.write_gatt_char(history_command_char, command, response=True)
+                        self.history_reference_time = dt_util.now().replace(
+                            minute=0, second=0, microsecond=0
+                        )
+                        await client.write_gatt_char(
+                            history_command_char, command, response=True
+                        )
                         loop = asyncio.get_running_loop()
                         history_deadline = loop.time() + 45
                         while loop.time() < history_deadline:
