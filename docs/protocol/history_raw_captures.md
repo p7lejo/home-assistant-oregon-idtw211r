@@ -250,3 +250,39 @@ The integration history records `0x01` as accepted for compatibility with an ear
 ## Notes for future captures
 
 When adding captures, preserve the full Home Assistant timestamp (including UTC offset), complete raw bytes, GATT value handle, and capture/session identifier. Do not label the trailing byte as a terminator, checksum, weekday, or status field until the relationship has been demonstrated. Keep the original bytes even if later protocol decoding changes.
+
+
+## Capture: 2026-11-18 00:19 (+01:00), Wednesday — trailing byte 0x4A
+
+Source: user-provided Home Assistant debug log. History request for outdoor channel 1 (`81 10 FF`) was issued at `2026-11-18 00:19:52.937+01:00`. The 26 preserved 18-byte notifications below arrived on GATT value handle `0x0013` (CCCD `0x0015`), from `00:19:53.289` through `00:19:56.749+01:00`. Every packet ends in `0x4A`, matching the packet structure and decoding behavior previously observed with `0x49`.
+
+The integration subsequently reported at `2026-11-18 00:20:04.751+01:00`: **170 indexed samples (74 containing data), indices 1..170**. The raw capture contains 26 packet notifications; the 170-index count is the decoder's assembled history result, not a count of raw notifications.
+
+## Raw packets
+
+- `2026-11-18 00:19:53.289+01:00` — `10 01 6e 00 40 6e 00 40 70 00 40 71 00 40 71 00 40 4a`
+- `2026-11-18 00:19:53.289+01:00` — `10 06 72 00 41 73 00 41 76 00 41 79 00 42 7c 00 42 4a`
+- `2026-11-18 00:19:53.406+01:00` — `10 0b 7d 00 43 79 00 42 76 00 41 76 00 40 74 00 41 4a`
+- `2026-11-18 00:19:53.695+01:00` — `10 10 73 00 43 72 00 46 6e 00 49 6b 00 4b 6c 00 4b 4a`
+- `2026-11-18 00:19:53.696+01:00` — `10 15 6d 00 4b 6e 00 4b 6f 00 4b 70 00 4b 71 00 4b 4a`
+- `2026-11-18 00:19:54.136+01:00` — `10 1a 72 00 4b 73 00 4a 75 00 4a 76 00 4a 77 00 4a 4a`
+- `2026-11-18 00:19:54.138+01:00` — `10 1f 78 00 49 79 00 49 7c 00 47 7d 00 46 7e 00 43 4a`
+- `2026-11-18 00:19:54.139+01:00` — `10 24 81 00 40 80 00 40 7b 00 40 76 00 41 72 00 42 4a`
+- `2026-11-18 00:19:54.140+01:00` — `10 29 6f 00 45 69 00 48 65 00 4a 65 00 49 66 00 48 4a`
+- `2026-11-18 00:19:54.141+01:00` — `10 2e 69 00 47 6a 00 48 64 00 4b 66 00 4a 67 00 47 4a`
+- `2026-11-18 00:19:54.489+01:00` — `10 33 6c 00 46 6a 00 4a 64 00 4e 62 00 4f 62 00 4e 4a`
+- `2026-11-18 00:19:54.490+01:00` — `10 38 63 00 4d 66 00 4b 6b 00 4a 63 00 4c 5d 00 4b 4a`
+- `2026-11-18 00:19:54.491+01:00` — `10 3d 57 00 49 55 00 49 52 00 4a 4f 00 4b 50 00 4b 4a`
+- `2026-11-18 00:19:54.494+01:00` — `10 42 50 00 4b 51 00 4b 51 00 4c 53 00 4c 54 00 4c 4a`
+- `2026-11-18 00:19:54.587+01:00` — `10 47 55 00 4e 56 00 4e 59 00 4e 5a 00 4e ff 7f 7f 4a`
+- `2026-11-18 00:19:54.752+01:00` — `10 4c ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:54.835+01:00` — `10 51 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.063+01:00` — `10 56 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.093+01:00` — `10 5b ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.218+01:00` — `10 60 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.341+01:00` — `10 65 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.397+01:00` — `10 6a ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.665+01:00` — `10 6f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.666+01:00` — `10 74 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.848+01:00` — `10 79 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:55.883+01:00` — `10 7e ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
