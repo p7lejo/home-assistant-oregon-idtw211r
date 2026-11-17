@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.37
+
+### Fixed
+- Simplify the history button label to `Historie auslesen`; Home Assistant supplies the button domain suffix automatically, so the action text is no longer duplicated.
+- Archive the complete 2026-11-18 00:19 (+01:00) channel 1 raw history capture. All 26 preserved notifications carry trailing byte `0x4A`, with original per-packet timestamps; the capture confirms that `0x4A` is decoded like `0x49` without assigning protocol meaning to the trailing byte.
+- Add a regression test using a packet from the `0x4A` capture.
+
+
 ## 0.2.36
 
 ### Fixed
