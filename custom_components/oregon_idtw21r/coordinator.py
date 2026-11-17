@@ -240,8 +240,19 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.history_status[channel] = "queued"
         self.history_reference_time = dt_util.now().replace(minute=0, second=0, microsecond=0)
         _LOGGER.debug("%s: manual history read queued for channel 0x%02X", self.device_name, channel)
-        while self._pending_history_channel is not None:
+        for _attempt in range(2):
+            if self._pending_history_channel is None:
+                break
             await self.async_request_refresh()
+        if self._pending_history_channel is not None:
+            self._pending_history_channel = None
+            self.history_status[channel] = "request_not_started"
+            _LOGGER.warning(
+                "%s: history request for channel 0x%02X was not started; "
+                "the station may be unreachable or a refresh failed",
+                self.device_name,
+                channel,
+            )
 
     async def _async_log_history_comparison(self, channel: int) -> None:
         """Compare decoded hourly samples with Home Assistant hourly means."""
