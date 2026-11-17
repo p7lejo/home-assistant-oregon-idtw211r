@@ -254,9 +254,9 @@ When adding captures, preserve the full Home Assistant timestamp (including UTC 
 
 ## Capture: 2026-11-18 00:19 (+01:00), Wednesday — trailing byte 0x4A
 
-Source: user-provided Home Assistant debug log. History request for outdoor channel 1 (`81 10 FF`) was issued at `2026-11-18 00:19:52.937+01:00`. The 26 preserved 18-byte notifications below arrived on GATT value handle `0x0013` (CCCD `0x0015`), from `00:19:53.289` through `00:19:56.749+01:00`. Every packet ends in `0x4A`, matching the packet structure and decoding behavior previously observed with `0x49`.
+Source: user-provided Home Assistant debug log. History request for outdoor channel 1 (`81 10 FF`) was issued at `2026-11-18 00:19:52.937+01:00`. The 34 preserved 18-byte notifications below arrived on GATT value handle `0x0013` (CCCD `0x0015`), from `00:19:53.289` through `00:19:56.749+01:00`. Every packet ends in `0x4A`, matching the packet structure and decoding behavior previously observed with `0x49`.
 
-The integration subsequently reported at `2026-11-18 00:20:04.751+01:00`: **170 indexed samples (74 containing data), indices 1..170**. The raw capture contains 26 packet notifications; the 170-index count is the decoder's assembled history result, not a count of raw notifications.
+The integration subsequently reported at `2026-11-18 00:20:04.751+01:00`: **170 indexed samples (74 containing data), indices 1..170**. The raw capture contains 34 packet notifications; the 170-index count is the decoder's assembled history result, not a count of raw notifications.
 
 ## Raw packets
 
@@ -286,3 +286,11 @@ The integration subsequently reported at `2026-11-18 00:20:04.751+01:00`: **170 
 - `2026-11-18 00:19:55.666+01:00` — `10 74 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
 - `2026-11-18 00:19:55.848+01:00` — `10 79 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
 - `2026-11-18 00:19:55.883+01:00` — `10 7e ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.185+01:00` — `10 83 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.186+01:00` — `10 88 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.187+01:00` — `10 8d ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.219+01:00` — `10 92 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.416+01:00` — `10 97 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.469+01:00` — `10 9c ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.590+01:00` — `10 a1 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
+- `2026-11-18 00:19:56.749+01:00` — `10 a6 ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f ff 7f 7f 4a`
