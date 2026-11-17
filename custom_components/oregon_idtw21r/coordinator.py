@@ -101,7 +101,13 @@ def _decode_history_packet(
             None if raw_temperature == 0x7FFF else raw_temperature / 10
         )
         raw_humidity = payload[offset + 2]
-        humidity = None if raw_humidity == 0x7F else raw_humidity
+        # Outdoor channel 3's sensor has no humidity measurement. Ignore the
+        # protocol slot for this channel even if it contains a non-sentinel byte.
+        humidity = (
+            None
+            if payload[0] == 0x12 or raw_humidity == 0x7F
+            else raw_humidity
+        )
         samples.append((temperature, humidity))
 
     return payload[0], payload[1], samples
