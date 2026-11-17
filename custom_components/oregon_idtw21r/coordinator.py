@@ -226,6 +226,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass = hass
         self.entry_id = entry.entry_id
         self._pending_history_channel: int | None = None
+        self._pending_history_mode = "read"
         self._history_request_lock = asyncio.Lock()
         self.history_samples: dict[int, dict[int, tuple[float | None, int | None]]] = {
             channel: {} for channel, _ in HISTORY_CHANNELS
@@ -251,6 +252,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise ValueError(f"Unsupported history channel: 0x{channel:02X}")
         async with self._history_request_lock:
             self._pending_history_channel = channel
+            self._pending_history_mode = import_mode
             self.history_samples[channel].clear()
             self.history_status[channel] = "queued"
             _LOGGER.debug(
@@ -264,6 +266,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self.async_request_refresh()
             if self._pending_history_channel is not None:
                 self._pending_history_channel = None
+                self._pending_history_mode = "read"
                 self.history_status[channel] = "request_not_started"
                 _LOGGER.warning(
                     "%s: history request for channel 0x%02X was not started; "
@@ -811,8 +814,10 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             await self._async_log_history_comparison(
                                 requested_channel
                             )
-                            if import_mode in {"fill", "overwrite"}:
-                                await self._async_import_history(requested_channel, import_mode)
+                            if self._pending_history_mode in {"fill", "overwrite"}:
+                                await self._async_import_history(
+                                    requested_channel, self._pending_history_mode
+                                )
                         else:
                             self.history_status[requested_channel] = (
                                 "no_notifications"
@@ -835,6 +840,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.history_captured_at = dt_util.utcnow()
                 if self._pending_history_channel == requested_channel:
                     self._pending_history_channel = None
+                self._pending_history_mode = "read"
 
             _LOGGER.info(
                 "%s: measurements: indoor %s °C / %s %%RH; "
