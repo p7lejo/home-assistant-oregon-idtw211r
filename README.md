@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.33** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.35** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
@@ -43,9 +43,9 @@ The implementation is based on protocol information from the original Raspberry 
 
 ## Experimental history diagnostics
 
-Hourly station history is read manually from the corresponding Home Assistant device. The base station has a **Historie auslesen – Drücken** button for the internal sensor; **Kanal 1** and **Kanal 2** each have their own button. The command addresses only the selected channel, matching the Oregon mobile app's one-channel-at-a-time workflow. Channel 3 is not currently supported by the observed history protocol and has no history button.
+Hourly station history is read manually from the corresponding Home Assistant device. The base station has a **Historie auslesen – Drücken** button for the internal sensor; **Kanal 1**, **Kanal 2** and **Kanal 3** each have their own button. The command addresses only the selected channel, matching the Oregon mobile app's one-channel-at-a-time workflow. Channel 3 history contains temperature only; humidity is not supplied by that physical sensor.
 
-The BLE request is sent to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the internal sensor, `81 10 FF` for outdoor channel 1 and `81 11 FF` for outdoor channel 2. The integration allows up to 45 seconds for the response because the mobile app's history exchange can take several tens of seconds. Live measurements continue to be updated independently.
+The BLE request is sent to the history command characteristic (ATT value handle `0x0011`): `81 00 FF` for the internal sensor, `81 10 FF` for outdoor channel 1, `81 11 FF` for outdoor channel 2 and `81 12 FF` for outdoor channel 3. The integration allows up to 45 seconds for the response because the mobile app's history exchange can take several tens of seconds. Live measurements continue to be updated independently.
 
 Decoded station samples remain diagnostic data; they are not imported into Home Assistant history or statistics. The debug log contains a side-by-side comparison of station values and Home Assistant hourly **mean** statistics, including the difference for temperature and humidity. Missing station values or unavailable HA statistics are shown as `n/a`/—. HA statistics are looked up through the entity registry, not through fixed entity IDs. A comparison is possible only for hours for which HA has statistics; the measurement entities use `state_class: measurement`, so statistics are generated for new readings.
 
