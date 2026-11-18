@@ -37,7 +37,9 @@
   },
   "selector": {
     "polling_interval": {
-      "unit_of_measurement": "minutes"
+      "unit_of_measurement": {
+        "min": "minutes"
+      }
     }
   }
 }
