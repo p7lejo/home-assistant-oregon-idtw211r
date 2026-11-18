@@ -7,6 +7,7 @@ import pytest
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.helpers.selector import NumberSelector, NumberSelectorMode
 
 from custom_components.oregon_idtw21r.const import DOMAIN, NAME, SERVICE_UUID
 
@@ -90,6 +91,14 @@ async def test_options_flow_saves_statistics_and_polling_options(
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.FORM
+    polling_key = next(
+        key for key in result["data_schema"].schema if key == "polling_interval"
+    )
+    polling_selector = result["data_schema"].schema[polling_key]
+    assert isinstance(polling_selector, NumberSelector)
+    assert polling_selector.config["mode"] == NumberSelectorMode.BOX
+    assert polling_selector.config["unit_of_measurement"] == "min"
+    assert polling_selector.config["translation_key"] == "polling_interval"
 
     options = {
         "allow_statistics_write": True,

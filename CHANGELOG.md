@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.40
+
+### Changed
+- Add complete German and English translations for the integration options; Home Assistant selects the language from its configured language.
+- Replace the polling interval slider with a numeric input box and show the unit explicitly, translated as “Minuten” or “minutes” according to the Home Assistant language.
+- Keep the polling interval range at 1–60 minutes and the default at 5 minutes.
+
 ## 0.2.39
 
 ### Added

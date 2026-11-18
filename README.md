@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.39** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.40** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
@@ -65,7 +65,7 @@ The import updates the existing statistic IDs of the corresponding sensor entiti
 
 - **Langzeitstatistiken beschreiben erlauben** (Standard: aktiviert): erlaubt das Schreiben der Oregon-Historie in die bestehenden stündlichen Langzeitstatistiken. Ist die Option deaktiviert, werden sowohl die manuellen Aktionen „Lücken füllen“ und „Werte überschreiben“ als auch der automatische Abgleich blockiert. „Historie auslesen“ bleibt möglich.
 - **Automatischer Statistikabgleich** (Standard: deaktiviert): liest bei Aktivierung einmal täglich die Historie aller vier Kanäle aus und übergibt ausschließlich fehlende Stundenwerte an den Recorder. Vorhandene, nicht-leere Mittelwerte werden niemals überschrieben.
-- **Polling-Intervall** (Standard: 5 Minuten): bestimmt das Intervall für die reguläre Aktualisierung der Live-Messwerte. Zulässig sind 1 bis 60 Minuten.
+- **Polling-Intervall** (Standard: 5 Minuten): bestimmt das Intervall für die reguläre Aktualisierung der Live-Messwerte. Es wird als numerischer Wert eingegeben; die Einheit wird als „Minuten“ bzw. „minutes“ angezeigt. Zulässig sind 1 bis 60 Minuten. Die Beschriftungen der Optionen folgen der in Home Assistant eingestellten Sprache (Deutsch oder Englisch).
 
 Der automatische Abgleich startet täglich um **03:00 Uhr lokaler Home-Assistant-Zeit**. Die vier Kanäle werden nacheinander abgefragt, damit die Station jeweils nur eine Historie-Anfrage erhält. Die Zeitzuordnung der Oregon-Stundenwerte ist weiterhin vorläufig (siehe oben). Eine erfolgreiche Übergabe an den Recorder wird im normalen INFO-Log mit Kanal, Anzahl übergebener Mittelwerte und Anzahl übersprungener vorhandener Werte protokolliert. Leere Antworten werden ebenfalls protokolliert; Kommunikations- und Recorderfehler erscheinen als Warnung bzw. Fehler. Die Recorder-API nimmt die Werte zunächst zur Verarbeitung an; die Logmeldung behauptet daher nicht, dass der Datenbank-Commit bereits abgeschlossen ist.
 
