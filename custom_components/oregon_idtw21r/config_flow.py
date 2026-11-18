@@ -9,6 +9,11 @@ from homeassistant.config_entries import OptionsFlowWithReload
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
 from .const import DOMAIN, NAME, SERVICE_UUID
 
@@ -105,7 +110,15 @@ class OregonIDTW21ROptionsFlow(OptionsFlowWithReload):
                 vol.Required(
                     "polling_interval",
                     default=options.get("polling_interval", DEFAULT_POLLING_INTERVAL),
-                ): vol.All(int, vol.Range(min=1, max=60)),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=1,
+                        max=60,
+                        step=1,
+                        mode=NumberSelectorMode.BOX,
+                        unit_of_measurement="min",
+                    )
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
