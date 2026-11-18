@@ -777,8 +777,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     history_command_char.properties
                 ):
                     self.history_status[requested_channel] = "unsupported"
-                    _LOGGER.debug(
-                        "%s: history command characteristic 0x%04x is not writable",
+                    _LOGGER.warning(
+                        "%s: history command characteristic 0x%04x is not writable; "
+                        "history cannot be read",
                         self.device_name,
                         HISTORY_COMMAND_CHAR_HANDLE,
                     )
