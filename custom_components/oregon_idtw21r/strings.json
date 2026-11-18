@@ -4,7 +4,9 @@
       "user": {
         "title": "Oregon Scientific IDTW21xR",
         "description": "Enter the Bluetooth address of the weather station.",
-        "data": {"address": "Bluetooth address"}
+        "data": {
+          "address": "Bluetooth address"
+        }
       },
       "confirm": {
         "title": "Oregon Scientific device found",
@@ -13,6 +15,19 @@
     },
     "abort": {
       "already_configured": "This Oregon Scientific device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Oregon Scientific settings",
+        "description": "Configure history synchronization and live measurement polling.",
+        "data": {
+          "allow_statistics_write": "Allow writing long-term statistics",
+          "auto_sync_enabled": "Automatic daily history synchronization",
+          "polling_interval": "Live measurement polling interval (minutes)"
+        }
+      }
     }
   }
 }
