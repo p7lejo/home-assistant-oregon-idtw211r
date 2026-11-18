@@ -59,6 +59,18 @@ The observed history notification is 18 bytes long: a channel identifier, a star
 
 The import updates the existing statistic IDs of the corresponding sensor entities. It writes only to hourly long-term statistics, not to five-minute short-term statistics, and does not create external statistic series. When an existing row is updated, its `min`, `max`, `state`, `sum` and `last_reset` fields are preserved. Only `mean` is changed. The hour mapping remains provisional as described above.
 
+### Automatischer Statistikabgleich und Optionen
+
+Über das Zahnrad der Oregon-Integration lassen sich die folgenden Einstellungen am Basisgerät konfigurieren:
+
+- **Langzeitstatistiken beschreiben erlauben** (Standard: aktiviert): erlaubt das Schreiben der Oregon-Historie in die bestehenden stündlichen Langzeitstatistiken. Ist die Option deaktiviert, werden sowohl die manuellen Aktionen „Lücken füllen“ und „Werte überschreiben“ als auch der automatische Abgleich blockiert. „Historie auslesen“ bleibt möglich.
+- **Automatischer Statistikabgleich** (Standard: deaktiviert): liest bei Aktivierung einmal täglich die Historie aller vier Kanäle aus und übergibt ausschließlich fehlende Stundenwerte an den Recorder. Vorhandene, nicht-leere Mittelwerte werden niemals überschrieben.
+- **Polling-Intervall** (Standard: 5 Minuten): bestimmt das Intervall für die reguläre Aktualisierung der Live-Messwerte. Zulässig sind 1 bis 60 Minuten.
+
+Der automatische Abgleich startet täglich um **03:00 Uhr lokaler Home-Assistant-Zeit**. Die vier Kanäle werden nacheinander abgefragt, damit die Station jeweils nur eine Historie-Anfrage erhält. Die Zeitzuordnung der Oregon-Stundenwerte ist weiterhin vorläufig (siehe oben). Eine erfolgreiche Übergabe an den Recorder wird im normalen INFO-Log mit Kanal, Anzahl übergebener Mittelwerte und Anzahl übersprungener vorhandener Werte protokolliert. Leere Antworten werden ebenfalls protokolliert; Kommunikations- und Recorderfehler erscheinen als Warnung bzw. Fehler. Die Recorder-API nimmt die Werte zunächst zur Verarbeitung an; die Logmeldung behauptet daher nicht, dass der Datenbank-Commit bereits abgeschlossen ist.
+
+Die Optionen werden über das Zahnrad am Integrationsgerät geöffnet. Änderungen laden die Integration mit den neuen Einstellungen neu.
+
 ## Important: IDTW211R vs IDTW213R
 
 The original project refers to `IDTW211R` and `IDTW213R`. The observed development device identifies itself as `IDTW213R`. The integration therefore uses the common `IDTW21xR` naming while matching the shared service UUID.
