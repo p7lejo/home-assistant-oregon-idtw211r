@@ -73,3 +73,37 @@ async def test_manual_config_flow_rejects_duplicate_device(
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+@pytest.mark.asyncio
+async def test_options_flow_saves_statistics_and_polling_options(
+    hass, enable_custom_integrations, monkeypatch
+):
+    """The options flow exposes and saves the three device settings."""
+    address = "AA:BB:CC:DD:EE:FF"
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=address,
+        data={"address": address, "name": NAME, "service_uuid": SERVICE_UUID},
+    )
+    entry.add_to_hass(hass)
+
+    async def skip_reload(entry_id):
+        return True
+
+    monkeypatch.setattr(hass.config_entries, "async_reload", skip_reload)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    options = {
+        "allow_statistics_write": True,
+        "auto_sync_enabled": True,
+        "polling_interval": 10,
+    }
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=options
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options == options
