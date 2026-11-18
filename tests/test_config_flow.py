@@ -77,7 +77,7 @@ async def test_manual_config_flow_rejects_duplicate_device(
 
 @pytest.mark.asyncio
 async def test_options_flow_saves_statistics_and_polling_options(
-    hass, enable_custom_integrations, monkeypatch
+    hass, enable_custom_integrations
 ):
     """The options flow exposes and saves the three device settings."""
     address = "AA:BB:CC:DD:EE:FF"
@@ -87,11 +87,6 @@ async def test_options_flow_saves_statistics_and_polling_options(
         data={"address": address, "name": NAME, "service_uuid": SERVICE_UUID},
     )
     entry.add_to_hass(hass)
-
-    async def skip_reload(entry_id):
-        return True
-
-    monkeypatch.setattr(hass.config_entries, "async_reload", skip_reload)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.FORM
