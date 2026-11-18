@@ -98,6 +98,7 @@ async def test_options_flow_saves_statistics_and_polling_options(
     assert isinstance(polling_selector, NumberSelector)
     assert polling_selector.config["mode"] == NumberSelectorMode.BOX
     assert polling_selector.config["unit_of_measurement"] == "min"
+    assert polling_selector.config["translation_key"] == "polling_interval"
 
     options = {
         "allow_statistics_write": True,
