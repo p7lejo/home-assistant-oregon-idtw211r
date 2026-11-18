@@ -5,6 +5,7 @@ from __future__ import annotations
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import OptionsFlowWithReload
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
@@ -75,22 +76,15 @@ class OregonIDTW21RConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         """Return the options flow for this config entry."""
-        return OregonIDTW21ROptionsFlow(config_entry)
+        return OregonIDTW21ROptionsFlow()
 
 
-class OregonIDTW21ROptionsFlow(config_entries.OptionsFlow):
+class OregonIDTW21ROptionsFlow(OptionsFlowWithReload):
     """Configure polling and hourly history synchronization."""
-
-    def __init__(self, config_entry) -> None:
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage integration options."""
         if user_input is not None:
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, options=user_input
-            )
-            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
