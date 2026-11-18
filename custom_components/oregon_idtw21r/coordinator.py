@@ -386,7 +386,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             minute=0, second=0, microsecond=0
         )
         samples = self.history_samples[channel]
-        imported = 0
+        queued_count = 0
         skipped = 0
         for metric_index, key in enumerate(entity_keys[channel]):
             entity_id = registry.async_get_entity_id(
@@ -471,7 +471,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if import_rows:
                 try:
                     async_import_statistics(self.hass, metadata, import_rows)
-                    imported += len(import_rows)
+                    queued_count += len(import_rows)
                 except Exception:
                     _LOGGER.exception(
                         "%s: failed importing long-term means for %s",
@@ -480,12 +480,12 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
 
         _LOGGER.info(
-            "%s: Oregon history %s import for channel 0x%02X completed: "
-            "%d mean values written, %d existing values skipped",
+            "%s: Oregon history %s import for channel 0x%02X queued: "
+            "%d mean values submitted to Recorder, %d existing values skipped",
             self.device_name,
             mode,
             channel,
-            imported,
+            queued_count,
             skipped,
         )
 
