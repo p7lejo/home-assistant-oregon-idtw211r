@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.39
+
+### Added
+- Add device options for long-term-statistics write permission, optional daily history synchronization and live measurement polling interval.
+- Add an optional daily fill-only synchronization of all four Oregon history channels at 03:00 local Home Assistant time. Existing non-empty hourly means are never overwritten.
+- Log history reception, empty responses, import counts and request failures at normal log levels.
+
+### Safety
+- Long-term-statistics writing is enabled by default to preserve the existing manual actions; automatic synchronization is disabled by default.
+- When statistics writing is disabled, both manual import actions and automatic synchronization are prevented. Read-only history retrieval remains available.
+
 ## 0.2.38
 
 ### Added
