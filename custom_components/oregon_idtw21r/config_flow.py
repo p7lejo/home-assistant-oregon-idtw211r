@@ -116,6 +116,7 @@ class OregonIDTW21ROptionsFlow(OptionsFlowWithReload):
                         step=1,
                         mode=NumberSelectorMode.BOX,
                         unit_of_measurement="min",
+                        translation_key="polling_interval",
                     )
                 ),
             }
