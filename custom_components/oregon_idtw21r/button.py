@@ -3,19 +3,14 @@
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.const import EntityCategory
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import OregonIDTW21RCoordinator
 
-HISTORY_CHANNELS = (
-    (0x00, None),
-    (0x10, 1),
-    (0x11, 2),
-    (0x12, 3),
-)
+HISTORY_CHANNELS = ((0x00, None), (0x10, 1), (0x11, 2), (0x12, 3))
 HISTORY_ACTIONS = (
     ("read", "Historie auslesen", "mdi:history"),
     ("fill", "Lücken füllen", "mdi:database-plus"),
@@ -38,16 +33,7 @@ class OregonHistoryButton(CoordinatorEntity[OregonIDTW21RCoordinator], ButtonEnt
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(
-        self,
-        coordinator: OregonIDTW21RCoordinator,
-        entry_id: str,
-        channel: int,
-        outdoor_channel: int | None,
-        mode: str,
-        name: str,
-        icon: str,
-    ) -> None:
+    def __init__(self, coordinator, entry_id, channel, outdoor_channel, mode, name, icon) -> None:
         super().__init__(coordinator)
         self._channel = channel
         self._mode = mode
@@ -68,12 +54,10 @@ class OregonHistoryButton(CoordinatorEntity[OregonIDTW21RCoordinator], ButtonEnt
             )
         else:
             self._attr_device_info = DeviceInfo(
-                identifiers={
-                    (DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")
-                },
+                identifiers={(DOMAIN, f"{coordinator.address}_outdoor_{outdoor_channel}")},
                 name=f"Kanal {outdoor_channel}",
                 manufacturer="Oregon Scientific",
-                via_device=(DOMAIN, coordinator.address),
+                via_device_id=coordinator.base_device_id,
             )
 
     async def async_press(self) -> None:
