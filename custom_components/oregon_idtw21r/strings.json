@@ -25,7 +25,12 @@
         "data": {
           "allow_statistics_write": "Allow writing long-term statistics",
           "auto_sync_enabled": "Automatic daily history synchronization",
-          "polling_interval": "Live measurement polling interval (minutes)"
+          "polling_interval": "Live measurement polling interval"
+        },
+        "data_description": {
+          "allow_statistics_write": "Allow the Oregon history to fill or overwrite hourly long-term statistics.",
+          "auto_sync_enabled": "Once per day, retrieve history and fill only missing hourly statistics.",
+          "polling_interval": "Polling interval for live measurements, in minutes."
         }
       }
     }
