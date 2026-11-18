@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.41
+
+### Fixed
+- Replace deprecated `via_device` references with the parent Home Assistant device-registry ID (`via_device_id`) for all outdoor channel devices.
+- Register the base station before forwarding platform setup so the parent device ID is available when channel entities are registered.
+- Add regression coverage for base-device registration and channel linkage.
+
 ## 0.2.40
 
 ### Changed
