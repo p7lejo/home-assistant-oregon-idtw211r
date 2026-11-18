@@ -4,13 +4,35 @@
       "user": {
         "title": "Oregon Scientific IDTW21xR",
         "description": "Bluetooth-Adresse der Wetterstation eingeben.",
-        "data": {"address": "Bluetooth-Adresse"}
+        "data": {
+          "address": "Bluetooth-Adresse"
+        }
       },
       "confirm": {
-        "title": "Oregon Scientific Gerät gefunden",
+        "title": "Oregon-Scientific-Gerät gefunden",
         "description": "{name} zu Home Assistant hinzufügen?"
       }
     },
-    "abort": {"already_configured": "Dieses Oregon-Scientific-Gerät ist bereits eingerichtet."}
+    "abort": {
+      "already_configured": "Dieses Oregon-Scientific-Gerät ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Oregon-Scientific-Einstellungen",
+        "description": "Historienabgleich und Aktualisierung der Live-Messwerte konfigurieren.",
+        "data": {
+          "allow_statistics_write": "Schreiben in Langzeitstatistiken erlauben",
+          "auto_sync_enabled": "Täglichen automatischen Historienabgleich aktivieren",
+          "polling_interval": "Polling-Intervall der Live-Messwerte"
+        },
+        "data_description": {
+          "allow_statistics_write": "Erlaubt, fehlende Stundenwerte aus der Oregon-Historie zu ergänzen oder vorhandene Werte zu überschreiben.",
+          "auto_sync_enabled": "Liest einmal täglich die Historie aus und ergänzt ausschließlich fehlende Stundenwerte.",
+          "polling_interval": "Zeitabstand zwischen Aktualisierungen der Live-Messwerte, in Minuten."
+        }
+      }
+    }
   }
 }
