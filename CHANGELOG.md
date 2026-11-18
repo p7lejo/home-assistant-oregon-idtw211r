@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.38
+
+### Added
+- Add three per-channel history actions: read-only inspection, fill missing hourly long-term-statistics `mean` values, or overwrite existing `mean` values when Oregon provides a valid sample.
+- Import into the existing sensor statistic IDs using Home Assistant Recorder's internal statistics import queue. No external statistic series or short-term statistics are created.
+- Preserve existing `min`, `max`, `state`, `sum` and `last_reset` values when changing an existing long-term-statistics row; only `mean` is replaced.
+
+### Safety
+- Oregon missing-value markers are skipped. Fill mode leaves existing non-null means unchanged; overwrite mode changes only the mean field.
+
+
+## 0.2.37
+
+### Fixed
+- Simplify the history button label to `Historie auslesen`; Home Assistant supplies the button domain suffix automatically, so the action text is no longer duplicated.
+- Archive the complete 2026-11-18 00:19 (+01:00) channel 1 raw history capture. All 34 preserved notifications carry trailing byte `0x4A`, with original per-packet timestamps; the capture confirms that `0x4A` is decoded like `0x49` without assigning protocol meaning to the trailing byte.
+- Add a regression test using a packet from the `0x4A` capture.
+
+
 ## 0.2.36
 
 ### Fixed

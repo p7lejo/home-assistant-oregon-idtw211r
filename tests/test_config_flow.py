@@ -11,8 +11,23 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.oregon_idtw21r.const import DOMAIN, NAME, SERVICE_UUID
 
 
+@pytest.fixture
+def bypass_integration_dependencies(monkeypatch):
+    """Keep config-flow tests independent of Bluetooth hardware and Recorder."""
+
+    async def skip_dependencies(hass, config, integration):
+        return None
+
+    monkeypatch.setattr(
+        "homeassistant.config_entries.async_process_deps_reqs",
+        skip_dependencies,
+    )
+
+
 @pytest.mark.asyncio
-async def test_manual_config_flow_creates_entry(hass, enable_custom_integrations):
+async def test_manual_config_flow_creates_entry(
+    hass, enable_custom_integrations, bypass_integration_dependencies
+):
     """A manual setup stores a normalized Bluetooth address."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -36,7 +51,7 @@ async def test_manual_config_flow_creates_entry(hass, enable_custom_integrations
 
 @pytest.mark.asyncio
 async def test_manual_config_flow_rejects_duplicate_device(
-    hass, enable_custom_integrations
+    hass, enable_custom_integrations, bypass_integration_dependencies
 ):
     """A device already configured cannot be added a second time."""
     address = "AA:BB:CC:DD:EE:FF"

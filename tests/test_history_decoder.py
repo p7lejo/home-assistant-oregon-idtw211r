@@ -73,6 +73,20 @@ class HistoryDecoderTests(unittest.TestCase):
                 self.assertEqual(len(samples), 5)
                 self.assertEqual(samples, expected_packet_samples)
 
+    def test_channel_3_0x4a_packet_with_missing_humidity(self):
+        packet = bytes.fromhex(
+            "12 01 44 00 7f 44 00 7f 46 00 7f 46 00 7f 46 00 7f 4a"
+        )
+        decoded = decode_history_packet(packet)
+        self.assertIsNotNone(decoded)
+        channel, start_index, samples = decoded
+        self.assertEqual(channel, 0x12)
+        self.assertEqual(start_index, 1)
+        self.assertEqual(
+            samples,
+            [(6.8, None), (6.8, None), (7.0, None), (7.0, None), (7.0, None)],
+        )
+
     def test_observed_trailing_bytes_are_ignored(self):
         base = bytearray.fromhex(
             "00 01 cf 00 2e cd 00 2f cb 00 30 ca 00 30 c9 00 31 31"
@@ -182,6 +196,21 @@ class HistoryDecoderTests(unittest.TestCase):
         self.assertIsNone(decode_history_packet(packet[:-1]))
         self.assertIsNone(decode_history_packet(packet + bytes([0])))
 
+
+    def test_captured_channel_1_packet_with_0x4a(self):
+        """Decode a real channel 1 packet from the 2026-11-18 0x4A capture."""
+        packet = bytes.fromhex(
+            "10 01 6e 00 40 6e 00 40 70 00 40 71 00 40 71 00 40 4a"
+        )
+        decoded = decode_history_packet(packet)
+        self.assertIsNotNone(decoded)
+        channel, start_index, samples = decoded
+        self.assertEqual(channel, 0x10)
+        self.assertEqual(start_index, 1)
+        self.assertEqual(
+            samples,
+            [(11.0, 64), (11.0, 64), (11.2, 64), (11.3, 64), (11.3, 64)],
+        )
 
 if __name__ == "__main__":
     unittest.main()
