@@ -77,7 +77,7 @@ async def test_manual_config_flow_rejects_duplicate_device(
 
 @pytest.mark.asyncio
 async def test_options_flow_saves_statistics_and_polling_options(
-    hass, enable_custom_integrations
+    hass, enable_custom_integrations, bypass_integration_dependencies
 ):
     """The options flow exposes and saves the three device settings."""
     address = "AA:BB:CC:DD:EE:FF"
