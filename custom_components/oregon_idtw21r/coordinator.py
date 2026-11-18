@@ -27,7 +27,7 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-UPDATE_INTERVAL = timedelta(minutes=5)
+DEFAULT_UPDATE_INTERVAL_MINUTES = 5
 NOTIFICATION_CHAR_HANDLE = 0x16
 # Bleak exposes the characteristic declaration handle. The ATT value handle is 0x17.
 MIN_PACKET_LENGTH = 20
@@ -226,6 +226,8 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_name = entry.data.get("name", "Oregon Scientific IDTW21xR")
         self.hass = hass
         self.entry_id = entry.entry_id
+        self.allow_statistics_write = entry.options.get("allow_statistics_write", True)
+        polling_interval = entry.options.get("polling_interval", DEFAULT_UPDATE_INTERVAL_MINUTES)
         self._pending_history_channel: int | None = None
         self._pending_history_mode = "read"
         self._history_request_lock = asyncio.Lock()
@@ -241,7 +243,7 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{self.address}",
-            update_interval=UPDATE_INTERVAL,
+            update_interval=timedelta(minutes=polling_interval),
             update_method=self._async_update_data,
         )
 
@@ -251,6 +253,13 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Request one channel's history, optionally importing hourly means."""
         if channel not in {item[0] for item in HISTORY_CHANNELS}:
             raise ValueError(f"Unsupported history channel: 0x{channel:02X}")
+        if import_mode in {"fill", "overwrite"} and not self.allow_statistics_write:
+            _LOGGER.warning(
+                "%s: history import for channel 0x%02X blocked because statistics writing is disabled",
+                self.device_name,
+                channel,
+            )
+            return
         async with self._history_request_lock:
             self._pending_history_channel = channel
             self._pending_history_mode = import_mode
@@ -479,12 +488,17 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         entity_id,
                     )
 
+        channel_labels = {
+            0x00: "Innensensor",
+            0x10: "Außensensor Kanal 1",
+            0x11: "Außensensor Kanal 2",
+            0x12: "Außensensor Kanal 3",
+        }
         _LOGGER.info(
-            "%s: Oregon history %s import for channel 0x%02X queued: "
-            "%d mean values submitted to Recorder, %d existing values skipped",
+            "%s: %s – Statistikabgleich (%s): %d Mittelwerte an den Recorder übergeben, %d vorhandene Werte übersprungen",
             self.device_name,
-            mode,
-            channel,
+            channel_labels[channel],
+            "nur Lücken" if mode == "fill" else "Überschreiben",
             queued_count,
             skipped,
         )
@@ -763,8 +777,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     history_command_char.properties
                 ):
                     self.history_status[requested_channel] = "unsupported"
-                    _LOGGER.debug(
-                        "%s: history command characteristic 0x%04x is not writable",
+                    _LOGGER.warning(
+                        "%s: history command characteristic 0x%04x is not writable; "
+                        "history cannot be read",
                         self.device_name,
                         HISTORY_COMMAND_CHAR_HANDLE,
                     )
@@ -813,11 +828,17 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 for temperature, humidity in channel_samples.values()
                             )
                             self.history_status[requested_channel] = "received"
-                            _LOGGER.debug(
-                                "%s: %s history received: %d indexed samples "
-                                "(%d containing data), indices %d..%d",
+                            channel_label = {
+                                0x00: "Innensensor",
+                                0x10: "Außensensor Kanal 1",
+                                0x11: "Außensensor Kanal 2",
+                                0x12: "Außensensor Kanal 3",
+                            }[requested_channel]
+                            _LOGGER.info(
+                                "%s: %s – Historie empfangen: %d Stundenwerte, "
+                                "%d davon mit Messdaten (Indizes %d bis %d)",
                                 self.device_name,
-                                channel_name,
+                                channel_label,
                                 len(indices),
                                 valid_count,
                                 min(indices),
@@ -834,16 +855,21 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.history_status[requested_channel] = (
                                 "no_notifications"
                             )
-                            _LOGGER.debug(
-                                "%s: no %s history notifications received",
+                            _LOGGER.info(
+                                "%s: %s – keine Historiedaten empfangen",
                                 self.device_name,
-                                channel_name,
+                                {
+                                    0x00: "Innensensor",
+                                    0x10: "Außensensor Kanal 1",
+                                    0x11: "Außensensor Kanal 2",
+                                    0x12: "Außensensor Kanal 3",
+                                }[requested_channel],
                             )
                     except (BleakError, OSError, ValueError, TimeoutError) as err:
                         self.history_status[requested_channel] = "request_failed"
-                        _LOGGER.debug(
-                            "%s: %s history request failed; live measurements "
-                            "remain available: %s",
+                        _LOGGER.warning(
+                            "%s: Historie für %s konnte nicht gelesen werden; "
+                            "Live-Messwerte bleiben verfügbar: %s",
                             self.device_name,
                             channel_name,
                             err,

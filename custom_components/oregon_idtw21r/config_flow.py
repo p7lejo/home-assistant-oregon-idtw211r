@@ -1,14 +1,20 @@
-"""Config flow for Oregon Scientific IDTW21xR."""
+"""Config flow and options for Oregon Scientific IDTW21xR."""
 
 from __future__ import annotations
 
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import OptionsFlowWithReload
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.core import callback
 
 from .const import DOMAIN, NAME, SERVICE_UUID
+
+DEFAULT_ALLOW_STATISTICS_WRITE = True
+DEFAULT_AUTO_SYNC_ENABLED = False
+DEFAULT_POLLING_INTERVAL = 5
 
 
 class OregonIDTW21RConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -65,3 +71,41 @@ class OregonIDTW21RConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         return self.async_show_form(step_id="confirm")
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Return the options flow for this config entry."""
+        return OregonIDTW21ROptionsFlow()
+
+
+class OregonIDTW21ROptionsFlow(OptionsFlowWithReload):
+    """Configure polling and hourly history synchronization."""
+
+    async def async_step_init(self, user_input=None):
+        """Manage integration options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    "allow_statistics_write",
+                    default=options.get(
+                        "allow_statistics_write", DEFAULT_ALLOW_STATISTICS_WRITE
+                    ),
+                ): bool,
+                vol.Required(
+                    "auto_sync_enabled",
+                    default=options.get(
+                        "auto_sync_enabled", DEFAULT_AUTO_SYNC_ENABLED
+                    ),
+                ): bool,
+                vol.Required(
+                    "polling_interval",
+                    default=options.get("polling_interval", DEFAULT_POLLING_INTERVAL),
+                ): vol.All(int, vol.Range(min=1, max=60)),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
