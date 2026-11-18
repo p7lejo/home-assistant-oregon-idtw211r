@@ -4,7 +4,7 @@ Custom Home Assistant integration for Oregon Scientific BLE weather stations of 
 
 ## Current status
 
-Version **0.2.40** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
+Version **0.2.41** provides an end-to-end local Bluetooth data path for the IDTW21xR family:
 
 - Bluetooth discovery by the Oregon Scientific service UUID
 - Configuration through the Home Assistant config flow using the Bluetooth address
@@ -16,7 +16,7 @@ Version **0.2.40** provides an end-to-end local Bluetooth data path for the IDTW
 - Decoding of up to three outdoor temperature and humidity sensors
 - Base-station battery level via the standard Bluetooth Battery Service
 - Separate low-battery status for outdoor sensors 1, 2 and 3
-- Outdoor sensors 1–3 are represented as separate Home Assistant devices (Kanal 1–3), linked to the IDTW213R base station
+- Outdoor sensors 1–3 are represented as separate Home Assistant devices (Kanal 1–3), linked to the IDTW213R base station using the Home Assistant device-registry ID
 - Automatic reconnect attempts
 - Explicit connection, notification, timeout, decoding and battery-status log messages
 
