@@ -5,9 +5,8 @@ from __future__ import annotations
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.config_entries import OptionsFlowWithReload
 from homeassistant.components import bluetooth
-from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.config_entries import ConfigFlowResult, OptionsFlowWithReload
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     NumberSelector,
