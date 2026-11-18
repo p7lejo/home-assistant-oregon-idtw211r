@@ -827,11 +827,17 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 for temperature, humidity in channel_samples.values()
                             )
                             self.history_status[requested_channel] = "received"
-                            _LOGGER.debug(
-                                "%s: %s history received: %d indexed samples "
-                                "(%d containing data), indices %d..%d",
+                            channel_label = {
+                                0x00: "Innensensor",
+                                0x10: "Außensensor Kanal 1",
+                                0x11: "Außensensor Kanal 2",
+                                0x12: "Außensensor Kanal 3",
+                            }[requested_channel]
+                            _LOGGER.info(
+                                "%s: %s – Historie empfangen: %d Stundenwerte, "
+                                "%d davon mit Messdaten (Indizes %d bis %d)",
                                 self.device_name,
-                                channel_name,
+                                channel_label,
                                 len(indices),
                                 valid_count,
                                 min(indices),
@@ -848,16 +854,21 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.history_status[requested_channel] = (
                                 "no_notifications"
                             )
-                            _LOGGER.debug(
-                                "%s: no %s history notifications received",
+                            _LOGGER.info(
+                                "%s: %s – keine Historiedaten empfangen",
                                 self.device_name,
-                                channel_name,
+                                {
+                                    0x00: "Innensensor",
+                                    0x10: "Außensensor Kanal 1",
+                                    0x11: "Außensensor Kanal 2",
+                                    0x12: "Außensensor Kanal 3",
+                                }[requested_channel],
                             )
                     except (BleakError, OSError, ValueError, TimeoutError) as err:
                         self.history_status[requested_channel] = "request_failed"
-                        _LOGGER.debug(
-                            "%s: %s history request failed; live measurements "
-                            "remain available: %s",
+                        _LOGGER.warning(
+                            "%s: Historie für %s konnte nicht gelesen werden; "
+                            "Live-Messwerte bleiben verfügbar: %s",
                             self.device_name,
                             channel_name,
                             err,
