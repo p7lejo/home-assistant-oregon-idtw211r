@@ -487,7 +487,9 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     async_import_statistics(self.hass, metadata, import_rows)
                     queued_count += len(import_rows)
-                    metric_label = "Temperatur" if metric_index == 0 else "Luftfeuchtigkeit"
+                    metric_label = (
+                        "Temperatur" if metric_index == 0 else "Luftfeuchtigkeit"
+                    )
                     first_local = dt_util.as_local(import_rows[0]["start"]).strftime(
                         "%d.%m.%Y %H:%M"
                     )
