@@ -481,11 +481,32 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     async_import_statistics(self.hass, metadata, import_rows)
                     queued_count += len(import_rows)
+                    metric_label = "Temperatur" if metric_index == 0 else "Luftfeuchtigkeit"
+                    first_local = dt_util.as_local(import_rows[0]["start"]).strftime(
+                        "%d.%m.%Y %H:%M"
+                    )
+                    last_local = dt_util.as_local(import_rows[-1]["start"]).strftime(
+                        "%d.%m.%Y %H:%M"
+                    )
+                    _LOGGER.info(
+                        "%s: %s – Statistikübernahme %s: %d Stundenmittelwerte "
+                        "an den Recorder übergeben (%s bis %s, lokale Zeit)",
+                        self.device_name,
+                        channel_labels[channel],
+                        metric_label,
+                        len(import_rows),
+                        first_local,
+                        last_local,
+                    )
                 except Exception:
                     _LOGGER.exception(
-                        "%s: failed importing long-term means for %s",
+                        "%s: failed importing long-term means for %s "
+                        "(%d rows, %s to %s)",
                         self.device_name,
                         entity_id,
+                        len(import_rows),
+                        min(valid_samples).isoformat(),
+                        max(valid_samples).isoformat(),
                     )
 
         channel_labels = {
