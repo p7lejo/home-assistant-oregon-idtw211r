@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.42
+
+### Changed
+- Log each successful history-statistics import batch at INFO level in the normal Home Assistant log, separately for temperature and humidity, including channel, number of hourly means and the affected local-time range.
+- Keep detailed station-versus-Home-Assistant comparisons in the debug log; recorder/import failures remain visible as errors in the normal log.
+
 ## 0.2.41
 
 ### Fixed
