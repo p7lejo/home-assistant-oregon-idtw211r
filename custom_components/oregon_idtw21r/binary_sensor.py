@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-)
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -28,9 +25,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     )
 
 
-class OregonLowBatteryBinarySensor(
-    CoordinatorEntity[OregonIDTW21RCoordinator], BinarySensorEntity
-):
+class OregonLowBatteryBinarySensor(CoordinatorEntity[OregonIDTW21RCoordinator], BinarySensorEntity):
     """A low-battery status reported by the Oregon weather station."""
 
     def __init__(self, coordinator, entry_id, key, name, channel) -> None:
@@ -44,13 +39,11 @@ class OregonLowBatteryBinarySensor(
             identifiers={(DOMAIN, f"{coordinator.address}_outdoor_{channel}")},
             name=f"Kanal {channel}",
             manufacturer="Oregon Scientific",
-            via_device=(DOMAIN, coordinator.address),
+            via_device_id=coordinator.base_device_id,
         )
 
     @property
     def is_on(self):
         """Return true when the outdoor sensor battery is low."""
         data = self.coordinator.data
-        if data is None:
-            return None
-        return data.get(self._key)
+        return None if data is None else data.get(self._key)

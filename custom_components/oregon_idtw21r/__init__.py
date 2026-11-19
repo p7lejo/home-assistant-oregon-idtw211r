@@ -14,6 +14,7 @@ from . import binary_sensor  # noqa: F401
 from . import button  # noqa: F401
 from . import sensor  # noqa: F401
 from .coordinator import HISTORY_CHANNELS, OregonIDTW21RCoordinator
+from .device import async_register_base_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ async def async_setup_entry(
     )
     coordinator = OregonIDTW21RCoordinator(hass, entry)
     entry.runtime_data = coordinator
+    coordinator.base_device_id = async_register_base_device(hass, entry, coordinator)
 
     if entry.options.get("auto_sync_enabled", False):
 
