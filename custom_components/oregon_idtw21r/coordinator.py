@@ -395,6 +395,12 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             minute=0, second=0, microsecond=0
         )
         samples = self.history_samples[channel]
+        channel_labels = {
+            0x00: "Innensensor",
+            0x10: "Außensensor Kanal 1",
+            0x11: "Außensensor Kanal 2",
+            0x12: "Außensensor Kanal 3",
+        }
         queued_count = 0
         skipped = 0
         for metric_index, key in enumerate(entity_keys[channel]):
@@ -509,12 +515,6 @@ class OregonIDTW21RCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         max(valid_samples).isoformat(),
                     )
 
-        channel_labels = {
-            0x00: "Innensensor",
-            0x10: "Außensensor Kanal 1",
-            0x11: "Außensensor Kanal 2",
-            0x12: "Außensensor Kanal 3",
-        }
         _LOGGER.info(
             "%s: %s – Statistikabgleich (%s): %d Mittelwerte an den Recorder übergeben, %d vorhandene Werte übersprungen",
             self.device_name,
